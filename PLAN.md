@@ -43,6 +43,18 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [x] Configure `ruff` + `ty`
 - [x] Update docs around FaultForge architecture
 
+### PR 4: Migrate Anduril to Java 25
+
+- [x] Update Anduril source to build under Java 25 / Temurin
+- [x] Remove stale BUILD.md and README-Anduril.md
+
+### PR 5: CI Workflow
+
+- [x] Add `.github/workflows/ci.yml`
+- [x] FaultForge lint + type-check + test jobs
+- [x] Xinda lint + type-check + test jobs
+- [x] Anduril Maven build job (Java 25)
+
 ## Phase 2: Xinda SDK
 
 ### PR 3: Package Xinda As A uv SDK
@@ -166,10 +178,10 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 faultforge/
   __init__.py
   recipe.py
-  xinda_runner.py
-  oracle.py
-  search.py
-  minimizer.py
+  xinda_runner.py     # future
+  oracle.py           # future
+  search.py           # future
+  minimizer.py        # future
 
 xinda/                # vendored Xinda source + SDK
   src/xinda/
