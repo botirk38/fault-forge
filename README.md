@@ -43,7 +43,6 @@ uv sync
 uv run faultforge --help
 ```
 
-See [BUILD.md](BUILD.md) for build instructions for each component.
 
 ## Roadmap
 
@@ -56,4 +55,4 @@ This project integrates two prior systems:
 - [Xinda](https://github.com/OrderLab/xinda) - Automated slow-fault testing pipeline (NSDI 2025)
 - [Anduril](https://github.com/OrderLab/Anduril) - Feedback-guided fault reproduction (ATC 2025)
 
-See [README-Xinda.md](README-Xinda.md) and [README-Anduril.md](README-Anduril.md) for original project documentation.
+See [Xinda](https://github.com/OrderLab/xinda) and [Anduril](https://github.com/OrderLab/Anduril) upstream repositories for original project documentation.
