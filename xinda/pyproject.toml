@@ -1,0 +1,53 @@
+[project]
+name = "xinda"
+version = "0.1.0"
+description = "Automated slow-fault testing pipeline for distributed systems"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docker>=7.1.0",
+    "psutil>=7.2.2",
+    "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
+    "ty>=0.0.37",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"main.py" = ["ALL"]
+"cleanup.py" = ["ALL"]
+"examples/**/*.py" = ["ALL"]
+"data-analysis/**/*.py" = ["ALL"]
+"src/xinda/configs/benchmark.py" = ["ALL"]
+"src/xinda/configs/logging.py" = ["ALL"]
+"src/xinda/configs/reslim.py" = ["ALL"]
+"src/xinda/configs/slow_fault.py" = ["ALL"]
+"src/xinda/configs/tool.py" = ["ALL"]
+"src/xinda/systems/*.py" = ["ALL"]
+
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["src/xinda/**/*.py"]
+exclude = [
+    "src/xinda/configs/**",
+    "src/xinda/systems/**",
+    "examples/**",
+    "data-analysis/**",
+]
