@@ -1,4 +1,4 @@
-# Slow-Anduril Plan
+# Env-Anduril Plan
 
 Transform Anduril from exception-only bug reproduction into a dual-plane feedback-guided fault reproduction framework for distributed systems.
 
@@ -16,7 +16,7 @@ Two projects under one repo. **Multiple faults can be active simultaneously** ac
 
 ```text
 ┌─────────────────────────────────────┐
-│         slow-anduril controller     │
+│         env-anduril controller      │
 │                                     │
 │  oracle  │  search  │  minimize     │
 └──────────┼──────────┼───────────────┘
@@ -42,12 +42,13 @@ Each trial can activate multiple faults concurrently:
 
 ## Phase 1: Baseline
 
-### PR 1: Adopt Anduril Baseline
+### PR 1: Repo Hygiene and Build Notes
 
-- [x] Move Anduril to repo root
-- [x] Clean .gitignore
-- [x] Project README with fork direction
-- [x] Preserve upstream docs as README-Anduril.md
+- [x] Move Anduril to `anduril/` subdirectory
+- [x] Init `env-anduril/` Go module
+- [x] Update README with two-project structure
+- [x] Add BUILD.md with build notes and known blockers
+- [x] Update PLAN.md with composable PR plan
 
 ### PR 2: Baseline Build and Smoke Test
 
@@ -59,7 +60,7 @@ Each trial can activate multiple faults concurrently:
 
 ## Phase 2: Core Abstractions
 
-### PR 3: Unified Recipe Schema
+### PR 3: Shared Recipe Schema
 
 Define the minimum recipe structure that both planes consume. **A trial can contain multiple concurrent faults**:
 
@@ -68,6 +69,7 @@ Define the minimum recipe structure that both planes consume. **A trial can cont
   "trial_id": "string",
   "faults": [
     {
+      "id": "string",
       "fault_plane": "in_process | environmental",
       "fault_model": "string",
       "target": {
@@ -91,11 +93,9 @@ Define the minimum recipe structure that both planes consume. **A trial can cont
 }
 ```
 
-- [ ] Add `runtime/recipe/Recipe.java` data class
-- [ ] Add `runtime/recipe/FaultSpec.java` data class
-- [ ] Add `runtime/recipe/RecipeParser.java` to read from config
-- [ ] Update `runtime/config/Config.java` to accept new fields
-- [ ] Keep existing `flakyAgent.*` keys working for migration if useful, but new code uses recipe schema
+- [ ] Add `env-anduril/internal/recipe/` with Go structs
+- [ ] Add schema validation tests
+- [ ] Add equivalent minimal Java model under `anduril/tool/runtime/recipe/` only if needed
 
 ### PR 4: Fault Operator Interface
 
@@ -108,10 +108,10 @@ interface FaultOperator {
 }
 ```
 
-- [ ] Add `runtime/fault/FaultOperator.java`
-- [ ] Add `runtime/fault/FaultSpec.java`
-- [ ] Add `runtime/fault/ExceptionFaultOperator.java` (wraps current Anduril behavior)
-- [ ] Add `runtime/fault/FaultOperatorFactory.java` (simple switch, no reflection)
+- [ ] Add `anduril/tool/runtime/fault/FaultOperator.java`
+- [ ] Add `anduril/tool/runtime/fault/FaultSpec.java`
+- [ ] Add `anduril/tool/runtime/fault/ExceptionFaultOperator.java` (wraps current Anduril behavior)
+- [ ] Add `anduril/tool/runtime/fault/FaultOperatorFactory.java` (simple switch, no reflection)
 - [ ] Runtime applies all faults in a trial's recipe concurrently
 - [ ] Cleanup guarantees all faults are cleared even if trial fails
 
@@ -119,7 +119,7 @@ interface FaultOperator {
 
 First new fault model. Simplest in-process change:
 
-- [ ] Add `runtime/fault/ThreadDelayFaultOperator.java`
+- [ ] Add `anduril/tool/runtime/fault/ThreadDelayFaultOperator.java`
 - [ ] Selected injection point sleeps instead of throws
 - [ ] Config: `fault.delay.ms`, `fault.delay.occurrence`
 - [ ] Trial output records: injection_id, delay_ms, occurrence, thread_name
@@ -145,51 +145,98 @@ First environmental fault in env-anduril:
 - [ ] Requires NET_ADMIN capability in containers
 - [ ] Works with Docker Compose clusters
 
-### PR 8: First Fail-Slow Case
+### PR 8: Env-Anduril CLI
 
-ZOOKEEPER-2251 or compatible:
+Thin CLI for manual fault injection:
 
-- [ ] Add `evaluation/zookeeper-2251/` case directory
-- [ ] Define oracle: symptom, logs, metrics, events
-- [ ] Define search space: fault types, nodes, magnitudes
-- [ ] Define workload: sync-heavy, quorum stress
-- [ ] Wire into existing driver loop
+- [ ] Add `env-anduril/cmd/cli/`
+- [ ] Commands: `apply`, `clear`, `status`
+- [ ] HTTP client only, no logic duplication
 
-## Phase 4: Oracle and Search
+## Phase 4: Trial Runner and Oracle
 
-### PR 9: Symptom Oracle Abstraction
+### PR 9: Single-Node Trial Runner
 
-Move beyond binary pass/fail:
+Run one workload with one environmental recipe:
 
-- [ ] Add `oracle/Oracle.java` interface
-- [ ] Add `oracle/OracleResult.java` with symptom_score, cause_score, matched_signals
-- [ ] Port existing `feedback/cases/*` matchers to new oracle interface
-- [ ] Add latency-based scoring for fail-slow cases
+- [ ] Add minimal trial runner in Go
+- [ ] Flow: load recipe → apply faults → run workload → collect output → clear faults → write result
+- [ ] Keep workload command generic
+- [ ] Cleanup runs even if workload fails or times out
 
-### PR 10: Feedback Search for Delay Parameters
+### PR 10: Basic Symptom Oracle
 
-Extend search beyond injection points:
+Score trials instead of only running them:
 
-- [ ] Search over delay magnitudes: 10, 50, 100, 250, 500ms
-- [ ] Search over occurrence/timing
-- [ ] Search over duration
-- [ ] Keep existing feedback-guided prioritization for injection sites
-- [ ] Add bounded search for environmental parameters
+- [ ] Add simple oracle config
+- [ ] Initial signal types: `log_contains`, `exit_code`, `latency_threshold`
+- [ ] Output: `symptom_score`, `matched_signals`, `success`
 
-### PR 11: Recipe Minimizer
+### PR 11: Bounded Search Loop
 
-After finding a reproducing recipe, shrink it:
+Automate search over recipe parameters:
 
-- [ ] Add `minimizer/Minimizer.java`
-- [ ] Greedy reduction: duration, magnitude, occurrence
-- [ ] Stop when symptom score drops below threshold
+- [ ] Simple search over: node, delay_ms, duration_ms
+- [ ] Grid or beam search, not complex
+- [ ] Input: search space YAML/JSON + workload command + oracle config
+- [ ] Output: ranked recipes
+
+## Phase 5: First Fail-Slow Case
+
+### PR 12: ZooKeeper Environmental Case
+
+First real fail-slow end-to-end case:
+
+- [ ] Add Docker Compose ZooKeeper case under `env-anduril/examples/zookeeper/`
+- [ ] Containers include `tc` and `NET_ADMIN`
+- [ ] Add workload script
+- [ ] Add oracle config for first target symptom
+- [ ] Prefer one issue-derived case, likely `ZOOKEEPER-2251`
+
+### PR 13: Recipe Minimizer
+
+Convert a successful recipe into a minimal reproduction:
+
+- [ ] Add minimizer in Go
+- [ ] Greedy minimize: delay_ms, duration_ms, number of faults
+- [ ] Keep recipe if oracle success remains above threshold
 - [ ] Output minimal recipe
 
-## Phase 5: Evaluation
+## Phase 6: Java Provider Integration
 
-### PR 12: Evaluation Harness
+### PR 14: Anduril Java Provider Boundary
 
-- [ ] Compare: original Anduril, random injection, Slow-Anduril
+Connect Java in-process work cleanly without overhauling it:
+
+- [ ] Add small adapter layer around existing Anduril runtime
+- [ ] Define how Java in-process faults consume the shared recipe
+- [ ] Do not rewrite analyzer yet
+- [ ] Start with mapping: recipe fault → injection id → occurrence → operator
+
+### PR 15: Java Thread Delay Operator
+
+First in-process fail-slow fault:
+
+- [ ] Add `thread_delay` operator in Java runtime
+- [ ] When selected injection point fires, sleep instead of throw
+- [ ] Record event: fault id, injection id, thread name, delay ms, occurrence
+
+### PR 16: Multi-Fault Trial Support
+
+Safely apply multiple simultaneous faults:
+
+- [ ] Environmental plane applies multiple recipe faults
+- [ ] Java plane applies matching in-process faults
+- [ ] Trial runner coordinates lifecycle
+- [ ] Cleanup is deterministic
+
+## Phase 7: Evaluation
+
+### PR 17: Evaluation Harness
+
+Make experiments reproducible:
+
+- [ ] Compare: original Anduril, random injection, Env-Anduril search
 - [ ] Run across exception bugs and fail-slow cases
 - [ ] Measure: trials to reproduce, recipe quality, false positive rate
 - [ ] Generate comparison report
@@ -227,6 +274,7 @@ env-anduril/           # Go environmental control plane
 PLAN.md                # This file
 README.md              # Fork overview
 README-Anduril.md      # Original docs
+BUILD.md               # Build notes for both projects
 ```
 
 ## What We Keep From Anduril

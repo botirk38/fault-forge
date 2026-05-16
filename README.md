@@ -1,41 +1,36 @@
-# Slow-Anduril
+# Env-Anduril
 
 An extensible feedback-guided fault reproduction framework for distributed systems.
 
 ## Overview
 
-Slow-Anduril extends the [Anduril](https://github.com/OrderLab/Anduril) framework to support generalized fault models beyond exception injection. The core thesis: given a production failure symptom, automatically search over fault site, node, fault type, parameters, and timing to reproduce the symptom and output a minimal root-cause recipe.
+Env-Anduril extends the [Anduril](https://github.com/OrderLab/Anduril) framework to support generalized fault models beyond exception injection. The core thesis: given a production failure symptom, automatically search over fault site, node, fault type, parameters, and timing to reproduce the symptom and output a minimal root-cause recipe.
 
 ## Motivation
 
-Original Anduril reproduces exception/partial-failure bugs via feedback-guided search over injection points. Slow-Anduril generalizes this to:
+Original Anduril reproduces exception/partial-failure bugs via feedback-guided search over injection points. Env-Anduril generalizes this to:
+
 - **Fail-slow faults**: thread delays, network degradation, disk slowdowns
+- **Multi-fault trials**: multiple concurrent faults across planes and nodes
 - **Quantitative oracles**: latency thresholds, timeout rates, election churn, retry storms
 - **Recipe minimization**: smallest delay magnitude, duration, and occurrence that reproduces a symptom
 
 ## Architecture
 
-- **Candidate Discovery**: Static analysis (Soot) identifies injection points across I/O, RPC, synchronization, and resource paths
-- **Fault Operators**: Pluggable fault models (exception, thread delay, network delay, disk delay, etc.)
-- **Feedback-Guided Search**: Prioritizes injection points using good/bad/trial log comparison
-- **Symptom Oracle**: Evaluates whether a trial reproduces target symptoms
-- **Recipe Minimization**: Reduces fault parameters to minimal reproducing configuration
+Two projects under one repo:
 
-## Getting Started
+- **`anduril/`**: Java in-process fault plane (Soot static analysis, bytecode instrumentation, TraceAgent)
+- **`env-anduril/`**: Go environmental fault plane (node-local agent, tc/netem, cgroup, OS-level controls)
 
-See [README-Anduril.md](README-Anduril.md) for the original Anduril build and usage instructions.
+Both consume a shared multi-fault recipe schema. Trials can activate multiple faults concurrently across planes and nodes.
+
+## Quick Start
+
+See [BUILD.md](BUILD.md) for build instructions for both projects.
 
 ## Roadmap
 
-1. [x] Adopt Anduril baseline
-2. [ ] Baseline build and smoke test
-3. [ ] Fault model abstraction
-4. [ ] Thread delay fault operator
-5. [ ] Generalized trial recipe format
-6. [ ] Symptom oracle abstraction
-7. [ ] First fail-slow case (ZOOKEEPER-2251)
-8. [ ] Search over delay parameters
-9. [ ] Recipe minimization
+See [PLAN.md](PLAN.md) for the full development plan.
 
 ## Acknowledgments
 
