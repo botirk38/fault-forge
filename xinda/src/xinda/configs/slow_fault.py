@@ -1,29 +1,41 @@
 import json
 
+
 class SlowFault:
-    def __init__(self, 
-                 type_ : str, # nw or fs
-                 location_ : str, # e.g., datanode
-                 duration_ : int,
-                 severity_ : str, # "slow3" for nw; "10000" for fs
-                 start_time_ : int,
-                 if_restart_: bool):
-        self.type = type_
-        self.location = location_
-        self.duration = duration_
-        self.severity = severity_
-        self.start_time = start_time_
-        self.end_time = start_time_ + duration_
-        if type_ == 'none':
-            self.info = type_
-        elif duration_ == -1:
-            self.info = type_ + '-' + severity_ + '-' + 'none'
-        else:
-            if if_restart_:
-                self.info = 'restart' + '-' + type_ + '-' + severity_ + '-' + 'dur' + str(duration_) + '-' + str(start_time_) + '-' + str(self.end_time)
-            else:
-                self.info = type_ + '-' + severity_ + '-' + 'dur' + str(duration_) + '-' + str(start_time_) + '-' + str(self.end_time)
-    def get_info(self):
+    def __init__(
+        self,
+        fault_type: str,
+        location: str,
+        duration_s: int,
+        severity: str,
+        start_s: int = 0,
+        if_restart: bool = False,
+    ):
+        self.fault_type = fault_type
+        self.location = location
+        self.duration_s = duration_s
+        self.severity = severity
+        self.start_s = start_s
+        self.if_restart = if_restart
+        self.end_s = start_s + duration_s if duration_s != -1 else -1
+        self._info = self._build_info()
+
+    def _build_info(self) -> str:
+        if self.fault_type == "none":
+            return self.fault_type
+        if self.duration_s == -1:
+            return f"{self.fault_type}-{self.severity}-none"
+        prefix = "restart-" if self.if_restart else ""
+        return (
+            f"{prefix}{self.fault_type}-{self.severity}"
+            f"-dur{self.duration_s}-{self.start_s}-{self.end_s}"
+        )
+
+    @property
+    def info(self) -> str:
+        return self._info
+
+    def get_info(self) -> str:
         spec = json.dumps(self.__dict__, indent=4)
         print(spec)
-        return(spec)
+        return spec

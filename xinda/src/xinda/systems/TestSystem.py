@@ -134,7 +134,7 @@ class TestSystem:
     
     def docker_up(self):
         cmd = [1]
-        if self.fault.type == 'nw' or self.fault.type == 'none':
+        if self.fault.fault_type == 'nw' or self.fault.fault_type == 'none':
             self.compose_file = 'docker-compose.yaml'
             if self.cluster_size > 3:
                 self.compose_file = f'docker-compose-{self.cluster_size}node.yaml'
@@ -142,7 +142,7 @@ class TestSystem:
                    '-f', self.compose_file,
                    'up',
                    '-d']
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.compose_file = f'docker-compose-{self.fault.location}.yaml'
             if self.cluster_size > 3:
                 self.compose_file = f'docker-compose-{self.fault.location}-{self.cluster_size}node.yaml'
@@ -151,11 +151,11 @@ class TestSystem:
                    'up',
                    '-d']
         else:
-            raise ValueError(f"Exception: Slow fault type:{self.fault.type} is not a member of {{nw, fs, none}}")
+            raise ValueError(f"Exception: Slow fault type:{self.fault.fault_type} is not a member of {{nw, fs, none}}")
         # UP
         print(' '.join(cmd))
         _ = subprocess.Popen(cmd, stdout = subprocess.DEVNULL, stderr = subprocess.DEVNULL, cwd=self.tool.compose)
-        if self.fault.type == 'fs':
+        if self.fault.fault_type == 'fs':
             for i in range(0, self.cluster_size-2):
                 time.sleep(1)
                 print('try again')
@@ -291,10 +291,10 @@ class TestSystem:
     def inject(self, cfs_pattern = None):
         if self.start_time is None:
             raise ValueError(f"Exception: self.start_time is None. Either the benchmark has not started yet, or we fail/forget to set this parameter")
-        if self.fault.duration == -1 and self.if_restart:
-            self.info(f"Baseline for restart. Will restart after 5s of fault.start_time:{self.fault.start_time}", rela=self.start_time)
+        if self.fault.duration_s == -1 and self.if_restart:
+            self.info(f"Baseline for restart. Will restart after 5s of fault.start_time:{self.fault.start_s}", rela=self.start_time)
             cur_time = self.get_current_ts()
-            delta_time = self.fault.start_time - cur_time
+            delta_time = self.fault.start_s - cur_time
             self.info(f"Sleep {delta_time} until next command", rela=self.start_time)
             if delta_time > 0:
                 time.sleep(delta_time)
@@ -304,13 +304,13 @@ class TestSystem:
             p = subprocess.run(cmd_restart, shell=True)
             self.info("docker restart ENDs", rela=self.start_time)
             return None
-        if self.fault.duration == -1:
+        if self.fault.duration_s == -1:
             self.info("Fault duration == -1, no faults shall be injected")
             return None
         cmd_inject=[]
         cmd_clear=[]
         work_dir=''
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             if 'flaky' in self.fault.severity:
                 cmd_inject = ['blockade', 'flaky', self.fault.location]
                 cmd_clear = ['blockade', 'fast', self.fault.location]
@@ -333,23 +333,23 @@ class TestSystem:
         cmd_inject = ' '.join(cmd_inject)
         cmd_clear = ' '.join(cmd_clear)
         if self.sys_name == 'depfast':
-            if self.fault.type == 'nw' and 'slow' in self.fault.severity:
+            if self.fault.fault_type == 'nw' and 'slow' in self.fault.severity:
                 delay = self.fault.severity.split('-')[1]
                 self.info(f"We are injecting in the DepFast way (delay: {delay})")
                 cmd_inject = f"docker exec -it {self.fault.location} sudo /sbin/tc qdisc add dev eth0 root netem delay {delay}"
                 cmd_clear = f"docker exec -it {self.fault.location} sudo /sbin/tc qdisc del dev eth0 root"
             else:
-                raise ValueError(f"Exception: Fault type:{self.fault.type} and severity:{self.fault.severity} are not supported in DepFast")
+                raise ValueError(f"Exception: Fault type:{self.fault.fault_type} and severity:{self.fault.severity} are not supported in DepFast")
         # Sleep until fault begins
         cur_time = self.get_current_ts()
-        delta_time = self.fault.start_time - cur_time
+        delta_time = self.fault.start_s - cur_time
         self.info(f"Sleep {delta_time} until next command", rela=self.start_time)
         if delta_time > 0:
             time.sleep(delta_time)
         # Faults begin (inject)
         self.info("fault command BEGINs", rela=self.start_time)
         p = subprocess.run(cmd_inject, shell=True, cwd=work_dir)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.check_blockade_slowness()
         self.info("fault actually BEGINs", rela=self.start_time)
         fault_actually_begin_time = self.get_current_ts()
@@ -376,18 +376,18 @@ class TestSystem:
             self.info("docker restart ENDs", rela=self.start_time)
             # resume fault
             cur_time = self.get_current_ts()
-            if cur_time - fault_actually_begin_time < self.fault.duration:
+            if cur_time - fault_actually_begin_time < self.fault.duration_s:
                 self.info("after restart: fault command BEGINs", rela=self.start_time)
                 p = subprocess.run(cmd_inject, shell = True,cwd=work_dir)
                 self.info("after restart: fault actually BEGINs", rela=self.start_time)
                 cur_time = self.get_current_ts()
-                delta_time = self.fault.duration - (cur_time - fault_actually_begin_time)
+                delta_time = self.fault.duration_s - (cur_time - fault_actually_begin_time)
                 if delta_time > 0:
                     time.sleep(delta_time)
             else:
                 self.info("after restart: fault duration is already over", rela=self.start_time)
         else:
-            time.sleep(self.fault.duration)
+            time.sleep(self.fault.duration_s)
         
         # Using blockade to inject faults takes nonnegligible time
         # e.g., blockade slow <container_name> could potentially take ~2s
@@ -397,12 +397,12 @@ class TestSystem:
         
         ## Option 1
         # cur_time = self.get_current_ts()
-        # delta_time = self.fault.end_time - cur_time
+        # delta_time = self.fault.end_s - cur_time
         # if delta_time > 0:
         #     time.sleep(delta_time)
         
         ## Option 2:
-        # time.sleep(self.fault.duration)
+        # time.sleep(self.fault.duration_s)
         
         # Faults end (clear)
         self.info("fault command ENDs", rela=self.start_time)

@@ -4,7 +4,7 @@ class Etcd(TestSystem):
     def test(self):
         # init
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             time.sleep(10)
             if self.cluster_size == 10:
@@ -13,7 +13,7 @@ class Etcd(TestSystem):
                 time.sleep(40)
             self.docker_get_status()
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up_charybdefs_etcd()
             time.sleep(10)
@@ -22,19 +22,19 @@ class Etcd(TestSystem):
             elif self.cluster_size == 20:
                 time.sleep(40)
             self.docker_get_status()
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs}}")
         self.get_leader_name()
         if self.benchmark.benchmark == 'ycsb':
             # load and run benchmark
             self._load_ycsb()
             self._run_ycsb()
             # inject slow faults
-            if self.fault.type != 'none':
+            if self.fault.fault_type != 'none':
                 self.inject(cfs_pattern=f".*{self.fault.location}.*")
             else:
                 self.info("Fault type == none, no faults shall be injected")
@@ -43,7 +43,7 @@ class Etcd(TestSystem):
         elif self.benchmark.benchmark == 'etcd-official':
             self.run_official()
             # inject slow faults
-            if self.fault.type != 'none':
+            if self.fault.fault_type != 'none':
                 self.inject(cfs_pattern=f".*{self.fault.location}.*")
             else:
                 self.info("Fault type == none, no faults shall be injected")
@@ -51,9 +51,9 @@ class Etcd(TestSystem):
             self._wait_till_official_ends()
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
             # Cleanning the compose process
             cmd = "ps aux | grep 'docker-compose' | grep -e 'T' -e 'S' | awk '{print $2}' | xargs kill -9"

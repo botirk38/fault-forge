@@ -5,30 +5,30 @@ class Copilot(TestSystem):
         self.control = "control"
         # init
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             time.sleep(10)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up()
             time.sleep(10)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             time.sleep(10)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs, none}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs, none}}")
         self._init_copilot()
         # run benchmark
         self._run_copilot()
         # inject slow faults
-        if self.fault.type != 'none':
+        if self.fault.fault_type != 'none':
             self.inject()
         else:
             self.info("Fault type == none, no faults shall be injected")
@@ -36,9 +36,9 @@ class Copilot(TestSystem):
         self._wait_till_benchmark_ends()
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
         self.info(f"Log absolute path: {self.log.data_dir}")
         self.info("THE END")

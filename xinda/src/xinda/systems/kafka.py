@@ -7,20 +7,20 @@ class Kafka(TestSystem):
     def test(self):
         # init
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up()
             time.sleep(20)
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             time.sleep(20)
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs}}")
         if self.benchmark.benchmark == 'perf_test':
             # create a test kafka topic
             self.init_kafka()
@@ -50,9 +50,9 @@ class Kafka(TestSystem):
             raise ValueError(f"Benchmark: {self.benchmark.workload} is not one of {{perf_test, openmsg}}")
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
         self.info("THE END")
     

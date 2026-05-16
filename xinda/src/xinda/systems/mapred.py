@@ -8,21 +8,21 @@ class Mapred(TestSystem):
         self._jacoco_cleanup()
         self.info(f"Current version: {self.version}")
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             self._docker_status_checker()
             time.sleep(10)
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up()
             self._docker_status_checker()
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             self._docker_status_checker()
             time.sleep(10)
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs}}")
         self._copy_file_to_container()
         if self.coverage:
             self._jacoco_export_hadoop_opts()
@@ -34,7 +34,7 @@ class Mapred(TestSystem):
         elif self.benchmark.benchmark == 'terasort':
             self.terasort_run_background()
         # inject slow faults
-        if self.fault.type != 'none':
+        if self.fault.fault_type != 'none':
             self.inject()
         else:
             self.info("Fault type == none, no faults shall be injected")
@@ -43,9 +43,9 @@ class Mapred(TestSystem):
         self.run_thread.join()
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
         self.info("THE END")
     

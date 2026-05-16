@@ -4,22 +4,22 @@ class Crdb(TestSystem):
     def test(self):
         # init
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs, none}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs, none}}")
         if self.benchmark.benchmark == 'ycsb':
             # load and run benchmark
             self._load_ycsb()
@@ -31,7 +31,7 @@ class Crdb(TestSystem):
             self._sysbench_load()
             self._sysbench_run()
         # inject slow faults
-        if self.fault.type != 'none':
+        if self.fault.fault_type != 'none':
             self.inject()
         else:
             self.info("Fault type == none, no faults shall be injected")
@@ -39,9 +39,9 @@ class Crdb(TestSystem):
         self._wait_till_benchmark_ends()
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
         self.info("THE END")
     
@@ -119,9 +119,9 @@ class Crdb(TestSystem):
             self.info("database:testdb created succesfully on crdb shell")
         else:
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             raise EnvironmentError("Error creating database:testdb on crdb shell")
     

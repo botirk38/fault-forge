@@ -218,15 +218,15 @@ def main(args):
     if args.cluster_size not in [3, 10, 20]:
         print('Currently only support cluster size of 3 or 10 or 20')
         exit(1)
-    reslim = ResourceLimit(cpu_limit_ = args.cpu_limit,
-                           mem_limit_ = args.mem_limit)
+    reslim = ResourceLimit(cpu_limit=args.cpu_limit,
+                           mem_limit=args.mem_limit)
 
-    fault = slow_fault.SlowFault(type_ = args.fault_type,
-                        location_ = args.fault_location,
-                        duration_ = args.fault_duration,
-                        severity_ = args.fault_severity,
-                        start_time_ = args.fault_start_time,
-                        if_restart_= args.if_restart)
+    fault = slow_fault.SlowFault(fault_type=args.fault_type,
+                                 location=args.fault_location,
+                                 duration_s=args.fault_duration,
+                                 severity=args.fault_severity,
+                                 start_s=args.fault_start_time,
+                                 if_restart=args.if_restart)
     if sys_name == 'cassandra':
         benchmark = YCSB_CASSANDRA(exec_time_ = args.bench_exec_time,
                                     workload_ = args.ycsb_wkl,
