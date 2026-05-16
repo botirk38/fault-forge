@@ -1,6 +1,6 @@
-# Env-Anduril Plan
+# FaultForge Plan
 
-Transform Anduril from exception-only bug reproduction into a dual-plane feedback-guided fault reproduction framework for distributed systems.
+Transform fault reproduction from manual/configured experiments into symptom-guided fault-recipe synthesis for distributed systems.
 
 ## Guiding Principles
 
@@ -8,312 +8,160 @@ Transform Anduril from exception-only bug reproduction into a dual-plane feedbac
 - Best practices over clever architecture
 - No backward compatibility baggage
 - One path end-to-end before adding more
-- Fail-slow is the primary motivating case
+- Fail-slow is the first major evaluation class
 
 ## Architecture
 
-Two projects under one repo. **Multiple faults can be active simultaneously** across planes and nodes.
-
 ```text
-┌─────────────────────────────────────┐
-│         env-anduril controller      │
-│                                     │
-│  oracle  │  search  │  minimize     │
-└──────────┼──────────┼───────────────┘
-           │          │
-    ┌──────┘          └──────┐
-    ▼                        ▼
-┌──────────────┐    ┌──────────────────┐
-│ anduril/     │    │ env-anduril/     │
-│ (Java)       │    │ (Go)             │
-│              │    │                  │
-│ Soot +       │    │ node-local       │
-│ TraceAgent   │    │ fault agent      │
-│ in-process   │    │ (tc, cgroup, etc)│
-│ faults       │    │ env faults       │
-└──────────────┘    └──────────────────┘
-
-Each trial can activate multiple faults concurrently:
-  - 2 in-process delays on different sites
-  - 1 network delay + 1 disk slowdown
-  - 3 nodes with different fault types
-  - etc.
+                 production issue / oracle
+                           │
+                           ▼
+                 faultforge/ (Python)
+                 search │ oracle │ minimize
+                    │              │
+                    ▼              ▼
+        xinda/                anduril/
+        environmental         Java in-process
+        slow-fault provider   static analysis + TraceAgent
 ```
 
 ## Phase 1: Baseline
 
-### PR 1: Repo Hygiene and Build Notes
+### PR 1: Adopt Anduril Baseline
 
 - [x] Move Anduril to `anduril/` subdirectory
-- [x] Init `env-anduril/` Go module
-- [x] Update README with two-project structure
-- [x] Add BUILD.md with build notes and known blockers
-- [x] Update PLAN.md with composable PR plan
+- [x] Clean .gitignore
+- [x] Project README with fork direction
+- [x] Preserve upstream docs as README-Anduril.md
 
-### PR 2: Baseline Build and Smoke Test
+### PR 2: Integrate Xinda and Initialize FaultForge
 
-- [ ] Document build dependencies (Java, Maven, Soot)
-- [ ] Add build script or Makefile target
-- [ ] Try building one existing case (e.g. zookeeper-3006)
-- [ ] Record blockers and environment requirements
-- [ ] No conceptual changes yet
+- [x] Remove `xinda/.git/`, vendored under `xinda/`
+- [x] Remove old `env-anduril/` Go-first framing
+- [x] Init root `uv` project
+- [x] Add `faultforge/` package with recipe schema
+- [x] Configure `ruff` + `ty`
+- [x] Update docs around FaultForge architecture
 
-## Phase 2: Core Abstractions
+## Phase 2: Xinda Integration
 
-### PR 3: Shared Recipe Schema
+### PR 3: Xinda Trial Runner
 
-Define the minimum recipe structure that both planes consume. **A trial can contain multiple concurrent faults**:
+- [ ] Add `faultforge/xinda_runner.py`
+- [ ] Wrap Xinda `main.py` for single-trial execution
+- [ ] Pass recipe fault config to Xinda
+- [ ] Collect logs/stats output
+- [ ] Clean up cluster after trial
 
-```json
-{
-  "trial_id": "string",
-  "faults": [
-    {
-      "id": "string",
-      "fault_plane": "in_process | environmental",
-      "fault_model": "string",
-      "target": {
-        "node": "string",
-        "component": "string",
-        "injection_id": "number (in_process only)"
-      },
-      "timing": {
-        "occurrence": "number (in_process)",
-        "phase": "string",
-        "start_after_s": "number",
-        "duration_s": "number"
-      },
-      "params": {
-        "delay_ms": "number",
-        "loss_pct": "number",
-        "exception_class": "string (in_process)"
-      }
-    }
-  ]
-}
-```
+### PR 4: First Xinda Case (ZooKeeper)
 
-- [ ] Add `env-anduril/internal/recipe/` with Go structs
-- [ ] Add schema validation tests
-- [ ] Add equivalent minimal Java model under `anduril/tool/runtime/recipe/` only if needed
+- [ ] Add Docker Compose ZooKeeper case
+- [ ] Configure Xinda for ZK network delay
+- [ ] Run single trial end-to-end
+- [ ] Verify log/stat collection
 
-### PR 4: Fault Operator Interface
+## Phase 3: Oracle and Search
 
-Clean interface, no plugin framework, just a simple dispatch:
+### PR 5: Symptom Oracle
 
-```java
-interface FaultOperator {
-    void apply(FaultSpec spec);
-    void clear(FaultSpec spec);
-}
-```
-
-- [ ] Add `anduril/tool/runtime/fault/FaultOperator.java`
-- [ ] Add `anduril/tool/runtime/fault/FaultSpec.java`
-- [ ] Add `anduril/tool/runtime/fault/ExceptionFaultOperator.java` (wraps current Anduril behavior)
-- [ ] Add `anduril/tool/runtime/fault/FaultOperatorFactory.java` (simple switch, no reflection)
-- [ ] Runtime applies all faults in a trial's recipe concurrently
-- [ ] Cleanup guarantees all faults are cleared even if trial fails
-
-### PR 5: Thread Delay Fault Operator
-
-First new fault model. Simplest in-process change:
-
-- [ ] Add `anduril/tool/runtime/fault/ThreadDelayFaultOperator.java`
-- [ ] Selected injection point sleeps instead of throws
-- [ ] Config: `fault.delay.ms`, `fault.delay.occurrence`
-- [ ] Trial output records: injection_id, delay_ms, occurrence, thread_name
-
-## Phase 3: Environmental Plane
-
-### PR 6: Node-Local Fault Agent (env-anduril)
-
-Small Go binary that runs on each node/container:
-
-- [ ] Add `env-anduril/cmd/agent/` main entry
-- [ ] Agent receives commands: apply_fault, clear_fault, status
-- [ ] Agent applies faults via OS commands (tc, cgroup, etc)
-- [ ] Agent guarantees cleanup on exit
-- [ ] Controller communicates via HTTP
-
-### PR 7: Network Delay Operator
-
-First environmental fault in env-anduril:
-
-- [ ] Add `env-anduril/internal/fault/network_delay.go`
-- [ ] Uses `tc qdisc add/del dev eth0 root netem delay Xms`
-- [ ] Requires NET_ADMIN capability in containers
-- [ ] Works with Docker Compose clusters
-
-### PR 8: Env-Anduril CLI
-
-Thin CLI for manual fault injection:
-
-- [ ] Add `env-anduril/cmd/cli/`
-- [ ] Commands: `apply`, `clear`, `status`
-- [ ] HTTP client only, no logic duplication
-
-## Phase 4: Trial Runner and Oracle
-
-### PR 9: Single-Node Trial Runner
-
-Run one workload with one environmental recipe:
-
-- [ ] Add minimal trial runner in Go
-- [ ] Flow: load recipe → apply faults → run workload → collect output → clear faults → write result
-- [ ] Keep workload command generic
-- [ ] Cleanup runs even if workload fails or times out
-
-### PR 10: Basic Symptom Oracle
-
-Score trials instead of only running them:
-
-- [ ] Add simple oracle config
-- [ ] Initial signal types: `log_contains`, `exit_code`, `latency_threshold`
+- [ ] Add `faultforge/oracle.py`
+- [ ] Initial signal types: log patterns, latency thresholds, error counts
+- [ ] Score trial output against target symptom
 - [ ] Output: `symptom_score`, `matched_signals`, `success`
 
-### PR 11: Bounded Search Loop
+### PR 6: Bounded Search Loop
 
-Automate search over recipe parameters:
-
-- [ ] Simple search over: node, delay_ms, duration_ms
-- [ ] Grid or beam search, not complex
-- [ ] Input: search space YAML/JSON + workload command + oracle config
+- [ ] Add `faultforge/search.py`
+- [ ] Search over: node, fault model, magnitude, timing
+- [ ] Grid or beam search, simple first
+- [ ] Input: search space + oracle config
 - [ ] Output: ranked recipes
 
-## Phase 5: First Fail-Slow Case
+## Phase 4: Minimization
 
-### PR 12: ZooKeeper Environmental Case
+### PR 7: Recipe Minimizer
 
-First real fail-slow end-to-end case:
-
-- [ ] Add Docker Compose ZooKeeper case under `env-anduril/examples/zookeeper/`
-- [ ] Containers include `tc` and `NET_ADMIN`
-- [ ] Add workload script
-- [ ] Add oracle config for first target symptom
-- [ ] Prefer one issue-derived case, likely `ZOOKEEPER-2251`
-
-### PR 13: Recipe Minimizer
-
-Convert a successful recipe into a minimal reproduction:
-
-- [ ] Add minimizer in Go
-- [ ] Greedy minimize: delay_ms, duration_ms, number of faults
-- [ ] Keep recipe if oracle success remains above threshold
+- [ ] Add `faultforge/minimizer.py`
+- [ ] Greedy reduce: magnitude, duration, fault count
+- [ ] Keep recipe if oracle score stays above threshold
 - [ ] Output minimal recipe
 
-## Phase 6: Java Provider Integration
+## Phase 5: Anduril Integration
 
-### PR 14: Anduril Java Provider Boundary
+### PR 8: Anduril Java Provider
 
-Connect Java in-process work cleanly without overhauling it:
+- [ ] Add `faultforge/anduril_runner.py`
+- [ ] Map recipe faults to Anduril injection points
+- [ ] Run Anduril trial with recipe config
+- [ ] Collect trial output
 
-- [ ] Add small adapter layer around existing Anduril runtime
-- [ ] Define how Java in-process faults consume the shared recipe
-- [ ] Do not rewrite analyzer yet
-- [ ] Start with mapping: recipe fault → injection id → occurrence → operator
+### PR 9: Multi-Provider Trial
 
-### PR 15: Java Thread Delay Operator
+- [ ] Coordinate Xinda + Anduril faults in one trial
+- [ ] Apply environmental faults first
+- [ ] Activate in-process faults from recipe
+- [ ] Clear all faults deterministically
 
-First in-process fail-slow fault:
+## Phase 6: Evaluation
 
-- [ ] Add `thread_delay` operator in Java runtime
-- [ ] When selected injection point fires, sleep instead of throw
-- [ ] Record event: fault id, injection id, thread name, delay ms, occurrence
+### PR 10: First Fail-Slow Case
 
-### PR 16: Multi-Fault Trial Support
+- [ ] Define ZOOKEEPER-2251 or compatible case
+- [ ] Oracle config for target symptom
+- [ ] Search space definition
+- [ ] Run search, find reproducing recipe
 
-Safely apply multiple simultaneous faults:
+### PR 11: Evaluation Harness
 
-- [ ] Environmental plane applies multiple recipe faults
-- [ ] Java plane applies matching in-process faults
-- [ ] Trial runner coordinates lifecycle
-- [ ] Cleanup is deterministic
-
-## Phase 7: Evaluation
-
-### PR 17: Evaluation Harness
-
-Make experiments reproducible:
-
-- [ ] Compare: original Anduril, random injection, Env-Anduril search
+- [ ] Compare: Xinda baseline, random search, FaultForge
 - [ ] Run across exception bugs and fail-slow cases
-- [ ] Measure: trials to reproduce, recipe quality, false positive rate
+- [ ] Measure: trials to reproduce, recipe quality
 - [ ] Generate comparison report
 
-## File Layout (Target)
+## File Layout
 
 ```text
-anduril/               # Original Anduril Java codebase
-  tool/
-    analyzer/          # Soot static analysis
-    runtime/
-      recipe/          # NEW: Recipe.java, FaultSpec.java
-      fault/           # NEW: FaultOperator interface + operators
-      config/          # UPDATED: accept new fields
-    driver/            # UPDATED: consume recipe schema
-    feedback/          # (keep existing, port to oracle later)
-    oracle/            # NEW: Oracle interface
-    minimizer/         # NEW: recipe minimization
-  evaluation/          # Per-case experiment harnesses
-  experiment/          # Per-case oracle/check scripts
-  ground_truth/        # Good/bad logs
-  systems/             # System source trees
-  java-default-parser/
+faultforge/
+  __init__.py
+  recipe.py
+  xinda_runner.py
+  oracle.py
+  search.py
+  minimizer.py
 
-env-anduril/           # Go environmental control plane
-  cmd/
-    agent/             # Node-local fault agent binary
-    cli/               # CLI for manual fault injection
-  internal/
-    fault/             # Fault operators (network, disk, cpu, etc)
-    server/            # HTTP/gRPC command handler
-    recipe/            # Recipe parsing
-  go.mod
+xinda/               # vendored Xinda source
+anduril/             # vendored Anduril source
 
-PLAN.md                # This file
-README.md              # Fork overview
-README-Anduril.md      # Original docs
-BUILD.md               # Build notes for both projects
+PLAN.md
+README.md
+README-Xinda.md
+README-Anduril.md
+BUILD.md
+pyproject.toml
+uv.lock
 ```
 
-## What We Keep From Anduril
+## What We Keep From Prior Systems
 
-- Static analysis and instrumentation (Soot, TraceAgent)
-- Feedback-guided trial selection
-- Good/bad/trial log comparison
-- Case organization (evaluation/, experiment/)
-- Trial record format
-- Reporter for results
-
-## What We Replace
-
-- Exception-only fault model -> pluggable fault operators
-- Binary pass/fail -> quantitative symptom oracle
-- Injection-point-only search -> multi-dimensional search
-- No recipe format -> structured recipe JSON
-- No minimization -> greedy recipe minimization
+- Xinda: environmental faults, cluster lifecycle, benchmarks, data collection
+- Anduril: static analysis, instrumentation, feedback-guided search, trial records
 
 ## What We Add
 
-- Environmental fault plane (node-local agent)
-- Thread delay fault operator
-- Network delay fault operator
 - Symptom oracle with scoring
+- Recipe schema for multi-fault trials
+- Search over fault parameters
 - Recipe minimization
-- Fail-slow case definitions
+- Multi-provider coordination
 
 ## Risks
 
-- Over-engineering the fault operator abstraction
-- Trying to support too many fault models at once
-- Breaking existing Anduril cases before new ones work
-- Complex distributed agent protocol
+- Over-engineering abstractions before concrete integrations
+- Trying to support too many fault classes at once
+- Breaking existing Anduril/Xinda cases before new path works
 
 ## Mitigations
 
-- Start with ExceptionFaultOperator wrapping current behavior
-- Add one new operator at a time
+- Build concrete wrappers first, extract interfaces later
+- Add one fault class at a time
 - Keep existing cases working until new path is proven
-- Simple HTTP/local socket for agent communication
-- No plugin framework, just a switch statement

@@ -1,0 +1,71 @@
+# performance metrics
+FIELD_METRIC = "metric" 
+FIELD_VALUE = "value" 
+FIELD_VAL_BF_SLOW = "val_bf_slow" 
+FIELD_VAL_IN_SLOW = "val_slow" 
+FIELD_VAL_AF_SLOW = "val_af_slow" 
+FIELD_CNT_SLOW_JOBS = "cnt_slow_jobs" 
+FIELD_LEADER_CHANGED = "leader_changed" 
+FIELD_RECOVER_TIME = "recover_time"
+
+# log output metrics
+FIELD_NUM_LOG = "#log" 
+FIELD_NUM_KWLOG = "#kwlog" 
+FIELD_NUM_INFOLOG = "#INFO" 
+FIELD_NUM_WARNLOG = "#WARN" 
+FIELD_NUM_ERRORLOG = "#ERROR" 
+FIELD_FIRST_LOG_TIME = "first_log_t"
+FIELD_LOG_RESPONSE_TIME = "log_response_t"
+
+# latency
+FIELD_LAT_R_95 = "lat_r95"
+FIELD_LAT_R_99 = "lat_r99"
+FIELD_LAT_W_95 = "lat_w95"
+FIELD_LAT_W_99 = "lat_w99"
+FIELD_LAT_UNIT = "lat_unit"
+
+# src traces
+FIELD_PARSE_ERROR = "PARSE_ERROR"
+FIELD_SRC_INFO = "SRC_INFO"
+FIELD_SRC_RUNTIME = "SRC_RUNTIME"
+FIELD_SRC_RAW = "SRC_RAW"
+FIELD_SRC_KAFKA = "SRC_KAFKA"
+
+STATS_COLNAMES = [    
+    FIELD_METRIC,
+    FIELD_VALUE,
+    FIELD_VAL_BF_SLOW,
+    FIELD_VAL_IN_SLOW,
+    FIELD_VAL_AF_SLOW,
+    FIELD_CNT_SLOW_JOBS,
+    FIELD_LEADER_CHANGED,
+    FIELD_RECOVER_TIME,
+    
+    FIELD_NUM_LOG,
+    FIELD_NUM_KWLOG,
+    FIELD_NUM_INFOLOG,
+    FIELD_NUM_WARNLOG,
+    FIELD_NUM_ERRORLOG,
+    FIELD_FIRST_LOG_TIME,
+    FIELD_LOG_RESPONSE_TIME,
+    
+    FIELD_LAT_R_95,
+    FIELD_LAT_R_99,
+    FIELD_LAT_W_95,
+    FIELD_LAT_W_99,
+    FIELD_LAT_UNIT,
+    
+    FIELD_PARSE_ERROR,
+    FIELD_SRC_INFO,
+    FIELD_SRC_RUNTIME,
+    FIELD_SRC_RAW,
+    FIELD_SRC_KAFKA
+]
+
+
+
+
+
+
+
+

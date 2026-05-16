@@ -1,32 +1,47 @@
-# Env-Anduril
+# FaultForge
 
-An extensible feedback-guided fault reproduction framework for distributed systems.
+A symptom-guided fault reproduction orchestrator for distributed systems.
 
 ## Overview
 
-Env-Anduril extends the [Anduril](https://github.com/OrderLab/Anduril) framework to support generalized fault models beyond exception injection. The core thesis: given a production failure symptom, automatically search over fault site, node, fault type, parameters, and timing to reproduce the symptom and output a minimal root-cause recipe.
-
-## Motivation
-
-Original Anduril reproduces exception/partial-failure bugs via feedback-guided search over injection points. Env-Anduril generalizes this to:
-
-- **Fail-slow faults**: thread delays, network degradation, disk slowdowns
-- **Multi-fault trials**: multiple concurrent faults across planes and nodes
-- **Quantitative oracles**: latency thresholds, timeout rates, election churn, retry storms
-- **Recipe minimization**: smallest delay magnitude, duration, and occurrence that reproduces a symptom
+FaultForge composes environmental slow-fault providers (Xinda) with in-process fault providers (Anduril) to automatically search for and minimize the fault recipe that reproduces a known production issue.
 
 ## Architecture
 
-Two projects under one repo:
+```text
+                 production issue / oracle
+                           │
+                           ▼
+                 orchestrator/ (Python)
+                 search │ oracle │ minimize
+                    │              │
+                    ▼              ▼
+        xinda/                anduril/
+        environmental         Java in-process
+        slow-fault provider   static analysis + TraceAgent
+        network/disk/cpu      thread delay / exception
+```
 
-- **`anduril/`**: Java in-process fault plane (Soot static analysis, bytecode instrumentation, TraceAgent)
-- **`env-anduril/`**: Go environmental fault plane (node-local agent, tc/netem, cgroup, OS-level controls)
+## Components
 
-Both consume a shared multi-fault recipe schema. Trials can activate multiple faults concurrently across planes and nodes.
+| Component | Role |
+|---|---|
+| `faultforge/` | Symptom oracle, search, minimization, experiment control |
+| `xinda/` | Environmental slow-fault injection, cluster lifecycle, benchmarks |
+| `anduril/` | Java in-process fault injection, static analysis, feedback-guided search |
+
+## Motivation
+
+Existing slow-fault testing systems such as Xinda explore the impact of configured slow faults under benchmarks. FaultForge targets a complementary problem: given a production issue symptom, automatically search for and minimize a fault recipe that reproduces that symptom.
 
 ## Quick Start
 
-See [BUILD.md](BUILD.md) for build instructions for both projects.
+```bash
+uv sync
+uv run faultforge --help
+```
+
+See [BUILD.md](BUILD.md) for build instructions for each component.
 
 ## Roadmap
 
@@ -34,4 +49,9 @@ See [PLAN.md](PLAN.md) for the full development plan.
 
 ## Acknowledgments
 
-This project extends [Anduril](https://github.com/OrderLab/Anduril) by OrderLab. See [README-Anduril.md](README-Anduril.md) for the original project documentation.
+This project integrates two prior systems:
+
+- [Xinda](https://github.com/OrderLab/xinda) - Automated slow-fault testing pipeline (NSDI 2025)
+- [Anduril](https://github.com/OrderLab/Anduril) - Feedback-guided fault reproduction (ATC 2025)
+
+See [README-Xinda.md](README-Xinda.md) and [README-Anduril.md](README-Anduril.md) for original project documentation.

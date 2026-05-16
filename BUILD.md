@@ -1,26 +1,51 @@
 # Build Notes
 
-## env-anduril (Go)
+## FaultForge (Python Orchestrator)
 
 ### Requirements
 
-- Go 1.26+
-- Linux or macOS (fault operators require Linux for `tc`/cgroup)
+- Python 3.12+
+- `uv` package manager
 
 ### Build
 
 ```bash
-cd env-anduril
-go build ./...
-go test ./...
+uv sync
+uv run ruff check faultforge/
+uv run ruff format --check faultforge/
+uv run ty check
+uv run pytest
+```
+
+## Xinda (Environmental Fault Provider)
+
+### Requirements
+
+- Ubuntu 18.04–20.04 (tested environment)
+- Python 3.6.13 (Xinda requirement)
+- Docker
+- Blockade (network faults)
+- CharybdeFS (filesystem faults)
+- CloudLab c220g2 nodes recommended
+
+### Build
+
+See [README-Xinda.md](README-Xinda.md) for full instructions.
+
+Quick start:
+
+```bash
+cd xinda
+pip install -r requirements.txt  # if exists
+python3 main.py --help
 ```
 
 ### Notes
 
-- The Go module is initialized but has no packages yet. See [PLAN.md](PLAN.md) for the development roadmap.
-- Fault operators that use `tc`/`netem` require `NET_ADMIN` capability and a Linux kernel.
+- Xinda is vendored as-is. We will wrap it behind `faultforge/xinda_runner.py`.
+- Xinda's Python version requirement (3.6) differs from FaultForge (3.12+). They run as separate processes.
 
-## anduril (Java)
+## Anduril (Java In-Process Provider)
 
 ### Requirements
 
@@ -37,26 +62,12 @@ cd anduril/tool
 mvn install -DskipTests
 ```
 
-### Compile a Case
-
-```bash
-cd anduril/systems/zookeeper-3006
-./compile.sh
-```
-
-### Compile All Cases
-
-```bash
-cd anduril/systems
-./compile-all.sh
-```
-
 ### Known Blockers
 
-- **JDK version**: This machine has JDK 25. Anduril was developed and tested with JDK 8. Some cases may fail to compile or run with newer JDKs.
-- **Platform**: Anduril was tested on Ubuntu 18.04–20.04 (x86_64). This machine is macOS (arm64). System compilation (ZooKeeper, HDFS, HBase) may have platform-specific issues.
-- **protobuf 2.5.0**: Required for HDFS. This is an old version that may not build on modern systems without patches.
+- **JDK version**: This machine has JDK 25. Anduril was developed and tested with JDK 8.
+- **Platform**: Anduril was tested on Ubuntu 18.04–20.04 (x86_64). This machine is macOS (arm64).
+- **protobuf 2.5.0**: Old version that may not build on modern systems.
 
-### Workaround for Development
+### Workaround
 
-For now, focus development on `env-anduril/` (Go) which does not depend on JDK 8 or Ubuntu. The Java plane can be validated later in a compatible environment (Linux + JDK 8).
+Focus development on `faultforge/` (Python) first. The Java plane can be validated later in a compatible environment (Linux + JDK 8).
