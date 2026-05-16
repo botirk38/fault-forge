@@ -32,8 +32,8 @@ Table of Contents
 ## Requirements
 
 * OS and JDK:
-  - Anduril is developed and tested under **Ubuntu 18.04 to 20.04** with **JDK 8**. 
-  - Other systems and newer JDKs may also work.
+  - Anduril is developed and tested under **Ubuntu 20.04 to 24.04** with **JDK 25**. 
+  - Other systems and older JDKs (8, 11, 17, 21) may also work.
 
 * Hardware: 
   - The basic workflow of Anduril described in this README can be done in just one single node.
@@ -42,20 +42,31 @@ Table of Contents
     and a 1 TB 7200 RPM 6G SAS HDs.
 
 * Git (>= 2.16.2, version control)
-* Apache Maven (>= 3.6.3, for Anduril compilation)
+* Apache Maven (>= 3.9.9, for Anduril compilation)
 * Apache Ant (>= 1.10.9, artifact testing only, for zookeeper compilation)
-* JDK8 (openjdk recommended)
+* JDK 25 (Eclipse Temurin recommended)
 * protobuf (==2.5.0, artifact testing only, for HDFS compilation)
 
 # 0. Install and configure dependencies
  
 ```bash
 sudo apt-get update
-sudo apt install git maven ant vim openjdk-8-jdk
-sudo update-alternatives --set java $(sudo update-alternatives --list java | grep "java-8")
+sudo apt install git ant vim
 
-export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-echo export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 >> ~/.bashrc
+# Install JDK 25 (Eclipse Temurin)
+curl -sL "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse" -o /tmp/jdk25.tar.gz
+sudo mkdir -p /usr/lib/jvm/temurin-25-jdk-amd64
+sudo tar xzf /tmp/jdk25.tar.gz -C /usr/lib/jvm/temurin-25-jdk-amd64 --strip-components=1
+
+# Install Maven 3.9.9
+wget -q https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz -O /tmp/maven.tar.gz
+sudo mkdir -p /opt/maven
+sudo tar xzf /tmp/maven.tar.gz -C /opt/maven --strip-components=1
+
+export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64
+export PATH=$JAVA_HOME/bin:/opt/maven/bin:$PATH
+echo 'export JAVA_HOME=/usr/lib/jvm/temurin-25-jdk-amd64' >> ~/.bashrc
+echo 'export PATH=$JAVA_HOME/bin:/opt/maven/bin:$PATH' >> ~/.bashrc
 ```
 
 If you do not have root permissions, install the dependencies this way:
@@ -67,18 +78,24 @@ If you do not have root permissions, install the dependencies this way:
 DEP=$HOME/anduril-dep # modify this path to where you want the dependencies installed
 cd $DEP
 
-wget https://builds.openlogic.com/downloadJDK/openlogic-openjdk/8u422-b05/openlogic-openjdk-8u422-b05-linux-x64.tar.gztar xzvf jdk-8u301-linux-x64.tar.gz
-tar xzvf openlogic-openjdk-8u422-b05-linux-x64.tar.gz
-wget https://dlcdn.apache.org/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz
-tar xzvf apache-maven-3.9.9-bin.tar.gz
-wget https://dlcdn.apache.org//ant/binaries/apache-ant-1.10.14-bin.tar.gz
-tar xzvf apache-ant-1.10.14-bin.tar.gz
+# Install JDK 25 (Eclipse Temurin)
+curl -sL "https://api.adoptium.net/v3/binary/latest/25/ga/linux/x64/jdk/hotspot/normal/eclipse" -o temurin-25.tar.gz
+tar xzf temurin-25.tar.gz
+JDK_DIR=$(ls -d temurin-* | head -1)
 
-export PATH=$PATH:$DEP/openlogic-openjdk-8u422-b05-linux-x64/bin:~/apache-maven-3.9.9/bin:$DEP/apache-ant-1.10.14/bin:$DEP/protobuf-build/bin
-export JAVA_HOME=$DEP/openlogic-openjdk-8u422-b05-linux-x64
+# Install Maven 3.9.9
+wget -q https://archive.apache.org/dist/maven/maven-3/3.9.9/binaries/apache-maven-3.9.9-bin.tar.gz
+tar xzf apache-maven-3.9.9-bin.tar.gz
 
-echo "export PATH=$DEP/openlogic-openjdk-8u422-b05-linux-x64/bin:~/apache-maven-3.9.9/bin:$DEP/apache-ant-1.10.14/bin:$DEP/protobuf-build/bin:\$PATH" >> ~/.bashrc
-echo "export JAVA_HOME=$DEP/openlogic-openjdk-8u422-b05-linux-x64" >> ~/.bashrc
+# Install Ant
+wget -q https://dlcdn.apache.org//ant/binaries/apache-ant-1.10.14-bin.tar.gz
+tar xzf apache-ant-1.10.14-bin.tar.gz
+
+export PATH=$DEP/$JDK_DIR/bin:$DEP/apache-maven-3.9.9/bin:$DEP/apache-ant-1.10.14/bin:$DEP/protobuf-build/bin:$PATH
+export JAVA_HOME=$DEP/$JDK_DIR
+
+echo "export PATH=$DEP/$JDK_DIR/bin:$DEP/apache-maven-3.9.9/bin:$DEP/apache-ant-1.10.14/bin:$DEP/protobuf-build/bin:\$PATH" >> ~/.bashrc
+echo "export JAVA_HOME=$DEP/$JDK_DIR" >> ~/.bashrc
 ```
 
 </details>
