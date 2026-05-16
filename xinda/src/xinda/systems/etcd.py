@@ -4,31 +4,10 @@ import time
 import threading
 import docker
 from xinda.systems.TestSystem import TestSystem
-from xinda.trial import Trial
 
 
 class Etcd(TestSystem):
-    @classmethod
-    def from_trial(cls, trial: Trial) -> "Etcd":
-        return cls(
-            sys_name=trial.system.name,
-            fault=None,
-            benchmark=None,
-            data_dir=trial.system.data_dir,
-            log_root_dir=trial.paths.log_root_dir,
-            xinda_software_dir=trial.paths.xinda_software_dir,
-            xinda_tools_dir=trial.paths.xinda_tools_dir,
-            charybdefs_mount_dir=trial.paths.charybdefs_mount_dir,
-            reslim=None,
-            version=trial.version,
-            coverage=trial.system.coverage,
-            if_restart=trial.fault.if_restart,
-            change_workload=trial.system.change_workload,
-            benchmark2=None,
-            if_iaso=trial.system.if_iaso,
-            cluster_size=trial.system.cluster_size,
-            iteration=trial.iteration,
-        )
+    # Uses inherited TestSystem.from_trial(trial)
 
     def test(self):
         self.info(self.fault.get_info(), if_time=False)

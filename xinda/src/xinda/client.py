@@ -12,7 +12,7 @@ import time
 import traceback
 from pathlib import Path
 
-from xinda.systems.etcd import Etcd
+from xinda.systems.registry import create_system
 from xinda.trial import Trial, TrialResult
 
 
@@ -25,7 +25,7 @@ class XindaClient:
         trial.paths = trial.paths or self._default_paths(trial.system.data_dir)
 
         try:
-            system = self._build_system(trial)
+            system = create_system(trial)
             system.test()
             return TrialResult(
                 success=True,
@@ -53,18 +53,6 @@ class XindaClient:
             )
 
     def _validate(self, trial: Trial) -> None:
-        if trial.system.name not in (
-            "cassandra",
-            "hbase",
-            "hadoop",
-            "etcd",
-            "crdb",
-            "kafka",
-            "depfast",
-            "copilot",
-        ):
-            raise ValueError(f"Unknown system: {trial.system.name}")
-
         if trial.fault.fault_type not in ("nw", "fs", "none"):
             raise ValueError(f"Unknown fault type: {trial.fault.fault_type}")
 
@@ -72,13 +60,3 @@ class XindaClient:
         from xinda.trial import TrialPaths
 
         return TrialPaths.defaults(data_dir)
-
-    def _build_system(self, trial: Trial):
-        """Build the appropriate system instance from a Trial."""
-        if trial.system.name == "etcd":
-            return Etcd.from_trial(trial)
-
-        raise NotImplementedError(
-            f"System {trial.system.name} not yet migrated to SDK Trial API. "
-            "Only etcd is supported in this release."
-        )

@@ -505,12 +505,67 @@ class TestSystem:
 
 
 def _build_benchmark(trial: Trial):
+    """Build the appropriate benchmark instance from a Trial."""
     cfg = trial.benchmark
     kwargs = dict(cfg.kwargs)
+    name = cfg.name
+    system = trial.system.name
 
-    if cfg.name == "ycsb":
-        return _build_ycsb(trial.system.name, kwargs)
-    if cfg.name == "etcd-official":
+    # YCSB benchmarks
+    if name == "ycsb":
+        if system == "cassandra":
+            return YCSB_CASSANDRA(
+                exec_time_=str(cfg.exec_time_s),
+                workload_=kwargs.get("workload", "mixed"),
+                recordcount_=kwargs.get("recordcount", "10000"),
+                operationcount_=kwargs.get("operationcount", "10000000"),
+                measurementtype_=kwargs.get("measurementtype", "raw"),
+                status_interval_=kwargs.get("status_interval", "1"),
+            )
+        if system == "hbase":
+            return YCSB_HBASE(
+                exec_time_=str(cfg.exec_time_s),
+                workload_=kwargs.get("workload", "mixed"),
+                recordcount_=kwargs.get("recordcount", "10000"),
+                operationcount_=kwargs.get("operationcount", "10000000"),
+                measurementtype_=kwargs.get("measurementtype", "raw"),
+                status_interval_=kwargs.get("status_interval", "1"),
+                columnfamily_=kwargs.get("columnfamily", "family"),
+                threadcount_=kwargs.get("threadcount", 8),
+            )
+        if system == "etcd":
+            return YCSB_ETCD(
+                exec_time_=str(cfg.exec_time_s),
+                workload_=kwargs.get("workload", "mixed"),
+                recordcount_=kwargs.get("recordcount", "10000"),
+                operationcount_=kwargs.get("operationcount", "500000000"),
+                measurementtype_=kwargs.get("measurementtype", "raw"),
+                status_interval_=kwargs.get("status_interval", "1"),
+                threadcount_=kwargs.get("threadcount", 1),
+                etcd_endpoints_=kwargs.get("etcd_endpoints", "http://0.0.0.0:2379"),
+            )
+        if system == "crdb":
+            return YCSB_CRDB(
+                exec_time_=str(cfg.exec_time_s),
+                workload_=kwargs.get("workload", "mixed"),
+                recordcount_=kwargs.get("recordcount", "10000"),
+                operationcount_=kwargs.get("operationcount", "500000000"),
+                max_rate_=kwargs.get("max_rate", "0"),
+                concurrency_=kwargs.get("concurrency", "8"),
+                status_interval_=kwargs.get("status_interval", "1"),
+                load_connection_string_=kwargs.get(
+                    "load_connection_string",
+                    "postgresql://root@roach3:26257?sslmode=disable",
+                ),
+                run_connection_string_=kwargs.get(
+                    "run_connection_string",
+                    "postgresql://root@roach3:26257,roach2:26257,roach1:26257?sslmode=disable",
+                ),
+            )
+        raise ValueError(f"YCSB not supported for system: {system}")
+
+    # etcd-official
+    if name == "etcd-official":
         return OFFICIAL_ETCD(
             workload_=kwargs.get("workload", "lease-keepalive"),
             total_=kwargs.get("total", 800000),
@@ -519,23 +574,74 @@ def _build_benchmark(trial: Trial):
             stm_locker_=kwargs.get("stm_locker", "stm"),
             num_watchers_=kwargs.get("num_watchers", 1000000),
         )
-    raise ValueError(f"Benchmark {cfg.name} not supported for this system")
 
-
-def _build_ycsb(system_name: str, kwargs: dict):
-    if system_name == "etcd":
-        return YCSB_ETCD(
-            exec_time_=str(kwargs.get("exec_time_s", "150")),
-            workload_=kwargs.get("workload", "mixed"),
-            recordcount_=kwargs.get("recordcount", "10000"),
-            operationcount_=kwargs.get("operationcount", "500000000"),
-            measurementtype_=kwargs.get("measurementtype", "raw"),
-            status_interval_=kwargs.get("status_interval", "1"),
-            threadcount_=kwargs.get("threadcount", 300),
-            etcd_endpoints_=kwargs.get("etcd_endpoints", "http://0.0.0.0:2379"),
+    # sysbench for crdb
+    if name == "sysbench":
+        return SYSBENCH_CRDB(
+            lua_scheme_=kwargs.get("lua_scheme", "oltp_write_only"),
+            table_size_=kwargs.get("table_size", 10000),
+            num_table_=kwargs.get("num_table", 1),
+            num_thread_=kwargs.get("num_thread", 1),
+            exec_time_=cfg.exec_time_s,
+            report_interval_=kwargs.get("report_interval", 1),
         )
-    raise ValueError(f"YCSB not supported for system: {system_name}")
+
+    # mrbench for hadoop
+    if name == "mrbench":
+        return MRBENCH_MAPRED(
+            num_reduces_=kwargs.get("num_reduces", "3"),
+            num_iter_=kwargs.get("num_iter", 10),
+        )
+
+    # terasort for hadoop
+    if name == "terasort":
+        return TERASORT_MAPRED(
+            num_of_100_byte_rows_=kwargs.get("num_of_100_byte_rows", "10737418"),
+            input_dir_=kwargs.get("input_dir", "/input"),
+            output_dir_=kwargs.get("output_dir", "/output"),
+        )
+
+    # perf_test for kafka
+    if name == "perf_test":
+        return PERFTEST_KAFKA(
+            replication_factor_=kwargs.get("replication_factor", "3"),
+            topic_partition_=kwargs.get("topic_partition", "10"),
+            topic_title_=kwargs.get("topic_title", "test-xinda"),
+            throughput_upper_bound_=kwargs.get("throughput_upper_bound", 10000),
+            num_msg_=kwargs.get("num_msg", 14000000),
+            exec_time_=cfg.exec_time_s,
+        )
+
+    # openmsg for kafka
+    if name == "openmsg":
+        return OPENMSG_KAFKA(
+            driver_=kwargs.get("driver", "kafka-latency"),
+            workload_file_=kwargs.get("workload_file", "simple-workload"),
+            exec_time_=cfg.exec_time_s,
+        )
+
+    # depfast
+    if name == "depfast":
+        return DEFAULT_DEPFAST(
+            exec_time_=str(cfg.exec_time_s),
+            concurrency_=kwargs.get("concurrency", 100),
+            scheme_=kwargs.get("scheme", "fpga_raft"),
+            nclient_=kwargs.get("nclient", 1),
+        )
+
+    # copilot
+    if name == "copilot":
+        return DEFAULT_COPILOT(
+            exec_time_=str(cfg.exec_time_s),
+            concurrency_=kwargs.get("concurrency", 10),
+            scheme_=kwargs.get("scheme", "copilot"),
+            nclient_=kwargs.get("nclient", 1),
+            trim_ratio_=kwargs.get("trim_ratio", "0"),
+        )
+
+    raise ValueError(f"Benchmark {name} not supported for system {system}")
 
 
 def _build_benchmark2(trial: Trial):
+    """Build secondary benchmark if change_workload is enabled."""
     return None
