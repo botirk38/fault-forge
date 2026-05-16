@@ -148,7 +148,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "tqdm" },
-    { name = "xinda-sdk" },
+    { name = "xinda" },
 ]
 
 [package.dev-dependencies]
@@ -168,7 +168,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "rich", specifier = ">=15.0.0" },
     { name = "tqdm", specifier = ">=4.67.3" },
-    { name = "xinda-sdk", editable = "xinda" },
+    { name = "xinda", editable = "xinda" },
 ]
 
 [package.metadata.requires-dev]
@@ -708,7 +708,7 @@ wheels = [
 ]
 
 [[package]]
-name = "xinda-sdk"
+name = "xinda"
 version = "0.1.0"
 source = { editable = "xinda" }
 dependencies = [
