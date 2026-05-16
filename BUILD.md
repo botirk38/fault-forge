@@ -17,33 +17,30 @@ uv run ty check
 uv run pytest
 ```
 
-## Xinda (Environmental Fault Provider)
+## Xinda SDK (Environmental Fault Provider)
 
 ### Requirements
 
-- Ubuntu 18.04–20.04 (tested environment)
-- Python 3.6.13 (Xinda requirement)
-- Docker
-- Blockade (network faults)
-- CharybdeFS (filesystem faults)
-- CloudLab c220g2 nodes recommended
+- Python 3.12+
+- `uv` package manager
+- Ubuntu 18.04–20.04 (for runtime: Docker, Blockade, CharybdeFS)
 
 ### Build
 
-See [README-Xinda.md](README-Xinda.md) for full instructions.
-
-Quick start:
-
 ```bash
-cd xinda
-pip install -r requirements.txt  # if exists
-python3 main.py --help
+uv sync --project xinda
+uv run --project xinda ruff check xinda/
+uv run --project xinda ruff format --check xinda/
+uv run --project xinda --directory xinda ty check
+uv run --project xinda pytest
 ```
 
 ### Notes
 
-- Xinda is vendored as-is. We will wrap it behind `faultforge/xinda_runner.py`.
-- Xinda's Python version requirement (3.6) differs from FaultForge (3.12+). They run as separate processes.
+- Xinda is now a local uv package (`xinda-sdk`) consumed by FaultForge via `[tool.uv.sources]`.
+- Legacy Xinda internals (`configs/`, `systems/`) are excluded from strict type checks and will be modernized incrementally.
+- The SDK layer provides typed config objects and a callable trial API.
+- Runtime requires Linux with Docker, Blockade, and CharybdeFS.
 
 ## Anduril (Java In-Process Provider)
 

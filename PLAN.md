@@ -43,12 +43,54 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [x] Configure `ruff` + `ty`
 - [x] Update docs around FaultForge architecture
 
-## Phase 2: Xinda Integration
+## Phase 2: Xinda SDK
 
-### PR 3: Xinda Trial Runner
+### PR 3: Package Xinda As A uv SDK
+
+- [x] Add `xinda/pyproject.toml` targeting Python `>=3.12`
+- [x] Add `xinda/README.md`
+- [x] Add `xinda/xinda/__init__.py` with version
+- [x] Make `uv sync --project xinda` work
+- [x] Add local editable dependency from root FaultForge
+- [x] Configure `ruff` + `ty` for Xinda (legacy code excluded, SDK boundary checked)
+- [x] Update docs
+
+### PR 4: Add Typed Xinda SDK Surface
+
+- [ ] Add `xinda/xinda/sdk.py`
+- [ ] Add typed models: `XindaTrialConfig`, `XindaTrialResult`, `SlowFaultConfig`, `BenchmarkConfig`, `SystemConfig`
+- [ ] `run_trial(config)` callable SDK function
+- [ ] Keep CLI/script behavior secondary
+
+### PR 5: Refactor Xinda Configs
+
+- [ ] Modernize `xinda/xinda/configs/`
+- [ ] Replace `SlowFault` with typed config model
+- [ ] Normalize field names
+- [ ] Remove dead compatibility paths
+
+### PR 6: Refactor Xinda Runner Flow
+
+- [ ] Extract `main.py` orchestration into `xinda/xinda/runner.py`
+- [ ] CLI becomes a thin wrapper around `runner.run_trial`
+- [ ] Preserve setup → workload → inject → collect → cleanup order
+
+### PR 7: Refactor Xinda System Layer
+
+- [ ] Modernize `TestSystem.py` into a typed base class/module
+- [ ] Keep Docker, Blockade, CharybdeFS behavior
+- [ ] Rename only where it improves clarity
+
+### PR 8: Make Xinda Package Pass Full ruff/ty
+
+- [ ] Expand checks to all maintained Xinda SDK code
+- [ ] Remove broad ignores for modernized Xinda modules
+- [ ] Keep exclusions only for generated/data-analysis/legacy scripts
+
+### PR 9: Xinda Trial Runner (FaultForge)
 
 - [ ] Add `faultforge/xinda_runner.py`
-- [ ] Wrap Xinda `main.py` for single-trial execution
+- [ ] Wrap Xinda SDK for single-trial execution
 - [ ] Pass recipe fault config to Xinda
 - [ ] Collect logs/stats output
 - [ ] Clean up cluster after trial
@@ -62,14 +104,21 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 3: Oracle and Search
 
-### PR 5: Symptom Oracle
+### PR 10: First Xinda Case (ZooKeeper)
+
+- [ ] Add Docker Compose ZooKeeper case
+- [ ] Configure Xinda for ZK network delay
+- [ ] Run single trial end-to-end
+- [ ] Verify log/stat collection
+
+### PR 11: Symptom Oracle
 
 - [ ] Add `faultforge/oracle.py`
 - [ ] Initial signal types: log patterns, latency thresholds, error counts
 - [ ] Score trial output against target symptom
 - [ ] Output: `symptom_score`, `matched_signals`, `success`
 
-### PR 6: Bounded Search Loop
+### PR 12: Bounded Search Loop
 
 - [ ] Add `faultforge/search.py`
 - [ ] Search over: node, fault model, magnitude, timing
@@ -79,7 +128,7 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 4: Minimization
 
-### PR 7: Recipe Minimizer
+### PR 13: Recipe Minimizer
 
 - [ ] Add `faultforge/minimizer.py`
 - [ ] Greedy reduce: magnitude, duration, fault count
@@ -88,14 +137,14 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 5: Anduril Integration
 
-### PR 8: Anduril Java Provider
+### PR 14: Anduril Java Provider
 
 - [ ] Add `faultforge/anduril_runner.py`
 - [ ] Map recipe faults to Anduril injection points
 - [ ] Run Anduril trial with recipe config
 - [ ] Collect trial output
 
-### PR 9: Multi-Provider Trial
+### PR 15: Multi-Provider Trial
 
 - [ ] Coordinate Xinda + Anduril faults in one trial
 - [ ] Apply environmental faults first
@@ -104,14 +153,14 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 6: Evaluation
 
-### PR 10: First Fail-Slow Case
+### PR 16: First Fail-Slow Case
 
 - [ ] Define ZOOKEEPER-2251 or compatible case
 - [ ] Oracle config for target symptom
 - [ ] Search space definition
 - [ ] Run search, find reproducing recipe
 
-### PR 11: Evaluation Harness
+### PR 17: Evaluation Harness
 
 - [ ] Compare: Xinda baseline, random search, FaultForge
 - [ ] Run across exception bugs and fail-slow cases
