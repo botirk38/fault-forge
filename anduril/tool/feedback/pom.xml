@@ -13,8 +13,7 @@
 
   <properties>
     <junit.jupiter.version>5.8.2</junit.jupiter.version>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
+    <maven.compiler.release>25</maven.compiler.release>
   </properties>
 
   <dependencies>
@@ -109,7 +108,7 @@
     <plugins>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>3.1.0</version>
+        <version>3.7.1</version>
         <configuration>
           <archive>
             <manifest>
@@ -133,12 +132,12 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.7.0</version>
+        <version>3.14.0</version>
       </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-        <version>2.22.2</version>
+        <version>3.5.2</version>
         <configuration>
           <!-- try to disable logging during maven test phase -->
           <!--argLine>-Dlog4j.configuration=file:${project.build.testOutputDirectory}/log4j-disable.properties</argLine-->
@@ -155,19 +154,21 @@
       </plugin>
       <plugin>
         <artifactId>maven-antrun-plugin</artifactId>
-        <version>1.8</version>
+        <version>3.1.0</version>
         <executions>
           <execution>
             <phase>process-classes</phase>
             <configuration>
               <target name="jni" description="Generate headers and compile the native code">
                 <echo>Generate headers and compile the native code</echo>
-                <exec executable="javah">
-                  <arg value="-d" />
+                <exec executable="javac">
+                  <arg value="-h" />
                   <arg value="${project.basedir}/src/main/native" />
+                  <arg value="-d" />
+                  <arg value="${project.build.outputDirectory}" />
                   <arg value="-classpath" />
                   <arg value="${project.build.outputDirectory}" />
-                  <arg value="feedback.NativeAlgorithms" />
+                  <arg value="${project.basedir}/src/main/java/feedback/NativeAlgorithms.java" />
                 </exec>
                 <exec executable="make"></exec>
               </target>
