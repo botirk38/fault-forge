@@ -9,25 +9,25 @@ class HBase(TestSystem):
         self.dest = 'hbase-benchmark'
         self.hbase_init_loc = 'hbase-regionserver2'
         self.info(self.fault.get_info(), if_time=False)
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.docker_up()
             time.sleep(60)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
             self.blockade_up()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_up()
             self.docker_up()
             time.sleep(60)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
-        elif self.fault.type == 'none':
+        elif self.fault.fault_type == 'none':
             self.docker_up()
             time.sleep(60)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
         else:
-            raise ValueError(f"Fault type:{self.fault.type} is not one of {{nw, fs}}")
+            raise ValueError(f"Fault type:{self.fault.fault_type} is not one of {{nw, fs}}")
         self._copy_file_to_container()
         if self.coverage:
             self._jacoco_export_hbase_opts()
@@ -38,7 +38,7 @@ class HBase(TestSystem):
             self._load_ycsb2()
         self.start_time = int(time.time()*1e9)
         # inject slow faults (in a background thread)
-        if self.fault.type != 'none':
+        if self.fault.fault_type != 'none':
             self.inject()
         else:
             self.info("Fault type == none, no faults shall be injected")
@@ -46,13 +46,13 @@ class HBase(TestSystem):
         if self.change_workload:
             self._run_ycsb2()
         # wrap-up and end
-        if self.fault.type != 'none':
+        if self.fault.fault_type != 'none':
             self.inject_thread.join()
         self._post_process()
         self.docker_down()
-        if self.fault.type == 'nw':
+        if self.fault.fault_type == 'nw':
             self.blockade_down()
-        elif self.fault.type == 'fs':
+        elif self.fault.fault_type == 'fs':
             self.charybdefs_down()
         self.info("THE END")
         self.info(self.log.data_dir)
@@ -96,9 +96,9 @@ class HBase(TestSystem):
             self.info("TABLE:usertable COLUMNFAMILY:family initiation timeout (60s)")
             self._post_process()
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             self.info("THE END")
             exit(1)
@@ -132,9 +132,9 @@ class HBase(TestSystem):
             self.info(f"{self.tool.ycsb}/workloads/workload{self.benchmark.workload}-{self.benchmark.columnfamily} load timeout ({loadTimeout}s)")
             self._post_process()
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             self.info("THE END")
             exit(1)
@@ -164,9 +164,9 @@ class HBase(TestSystem):
             self.info(f"{self.tool.ycsb}/workloads/workload{self.benchmark2.workload}-{self.benchmark2.columnfamily} load timeout ({loadTimeout}s)")
             self._post_process()
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             self.info("THE END")
             exit(1)
@@ -195,9 +195,9 @@ class HBase(TestSystem):
             self.info(f"ycsb_process took too long (>={2*(int(self.benchmark.exec_time))}s) to complete and was killed.", rela=self.start_time)
             self._post_process()
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             self.info("THE END")
             exit(1)
@@ -231,9 +231,9 @@ class HBase(TestSystem):
             self.info(f"ycsb_process took too long (>={2*(int(self.benchmark2.exec_time))}s) to complete and was killed.", rela=self.start_time)
             self._post_process()
             self.docker_down()
-            if self.fault.type == 'nw':
+            if self.fault.fault_type == 'nw':
                 self.blockade_down()
-            elif self.fault.type == 'fs':
+            elif self.fault.fault_type == 'fs':
                 self.charybdefs_down()
             self.info("THE END")
             exit(1)
