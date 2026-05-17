@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-FaultForge is a symptom-guided fault reproduction orchestrator for distributed systems. It coordinates Xinda (environmental slow-fault provider) and Anduril (Java in-process provider) to search for minimal fault recipes that reproduce production issues.
+FaultForge is a symptom-guided fault reproduction orchestrator for distributed systems. It directly integrates the Xinda-derived runtime to search for minimal fault trials that reproduce production issues.
 
 ## Package Manager: uv
 
@@ -43,25 +43,23 @@ uv run ruff check --fix src/faultforge/
 fault-forge/
 ├── .python-version         # Python version pin
 ├── .github/workflows/ci.yml
-├── faultforge/             # FaultForge uv project (`faultforge-sdk`)
+├── faultforge/             # FaultForge uv project
 │   ├── pyproject.toml      # FaultForge deps, ruff, ty
 │   ├── uv.lock
-│   └── src/faultforge/     # oracle.py, recipe.py (trial assembly/minimizers), search.py, fault_provider/ (fault adapters + fault.py shapes)
-├── xinda/                  # Local uv package (environmental fault provider)
+│   └── src/faultforge/
+│       ├── __init__.py     # exports: Trial, SlowFault, SystemConfig, etc.
+│       ├── cli.py          # faultforge CLI (search subcommand)
+│       ├── oracle.py       # symptom oracle (log-pattern, exit-code)
+│       ├── trial.py        # canonical Trial, SlowFault, configs
+│       ├── runner.py       # TrialRunner executes trials
+│       ├── search.py       # SearchConfig, SearchStrategy, Searcher
+│       ├── systems/        # Docker/Blockade/CharybdeFS lifecycle
+│       └── configs/        # legacy runtime configs
+├── xinda/                  # Reference copy for result comparison
 │   ├── pyproject.toml
-│   ├── AGENTS.md           # Xinda-specific dev guide
+│   ├── AGENTS.md
 │   ├── main.py
-│   ├── cleanup.py
 │   └── src/xinda/
-│       ├── __init__.py
-│       ├── client.py       # XindaClient SDK entry point
-│       ├── trial.py        # Trial, SlowFault, BenchmarkConfig dataclasses
-│       ├── configs/        # Legacy config classes
-│       └── systems/        # System implementations + registry
-├── anduril/                # Java in-process provider (vendored, Java 25)
-│   ├── tool/               # Maven multi-module build
-│   ├── evaluation/
-│   └── systems/
 ├── README.md
 └── PLAN.md
 ```
@@ -102,6 +100,8 @@ uv add --project xinda <package>
 ## Key Constraints
 
 - Python 3.12+
-- Xinda is declared in FaultForge via `[tool.uv.sources] xinda = { path = "../xinda", editable = true }` inside `faultforge/pyproject.toml`
+- FaultForge directly owns the integrated runtime; no external `xinda` dependency
+- The canonical execution unit is `Trial` (not `Recipe`)
+- `Trial.faults: list[SlowFault]` supports multi-fault trials
 - No backward compatibility baggage — refactor aggressively when it improves clarity
 - Keep code simple and readable. Best practices over clever architecture.
