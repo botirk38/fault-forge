@@ -1,42 +1,22 @@
-# Editor/OS
-*.swp
-*.swo
-*~
-.DS_Store
-.idea/
-.vscode/
-
-# Java build
-*.class
-*.jar
-*.war
-*.ear
-target/
-out/
-build/
-*.log
-
-# Soot output
-sootOutput/
-jimpleOutput/
-
-# Evaluation artifacts
-evaluation/*/trials/
-evaluation/*/*.out
-evaluation/*/feedback/
-
-# Workload artifacts
-workloads/*/output/
-workloads/*/logs/
-
-# Python artifacts (if any tooling uses Python)
+# Python
 __pycache__/
-*.py[oc]
-*.egg-info/
-dist/
-wheels/
+*.pyc
+*.pyo
 .venv/
+.pytest_cache/
+.ruff_cache/
 
-# Experiment results
-results/
-reports/
+# FaultForge generated
+faultforge/data/
+faultforge/results/
+faultforge/software/
+faultforge/stderr.log
+faultforge/runtime.local.yaml
+
+# Experiment outputs (keep configs, remove results)
+faultforge/experiments/*/
+faultforge/oracles/*.log
+
+# Xinda runtime
+xinda/tools/docker-*/.env
+xinda/__pycache__/

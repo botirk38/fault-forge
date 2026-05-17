@@ -45,7 +45,7 @@ class Preflight:
         self._check_docker_daemon(report)
         self._check_docker_compose(report)
         self._check_compose_root(report)
-        self._check_tc_available(report)
+        self._check_nsenter(report)
         return report
 
     def _check_docker_cli(self, report: PreflightReport) -> None:
@@ -88,21 +88,13 @@ class Preflight:
         else:
             report.add("compose root", False, f"{self._runtime.compose_root} does not exist")
 
-    def _check_tc_available(self, report: PreflightReport) -> None:
-        try:
-            result = subprocess.run(
-                [self._runtime.docker_bin, "run", "--rm", "alpine:3.18", "which", "tc"],
-                capture_output=True,
-                text=True,
-                timeout=30,
+    def _check_nsenter(self, report: PreflightReport) -> None:
+        path = shutil.which("nsenter")
+        if path:
+            report.add("nsenter", True, f"found at {path}")
+        else:
+            report.add(
+                "nsenter",
+                False,
+                "nsenter not found; network faults require nsenter for host-side tc injection",
             )
-            if result.returncode == 0:
-                report.add("tc in containers", True)
-            else:
-                report.add(
-                    "tc in containers",
-                    False,
-                    "tc not found in target container image; network faults will fail",
-                )
-        except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-            report.add("tc in containers", False, f"could not verify: {e}")

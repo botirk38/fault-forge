@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from faultforge.injector import NetworkFaultInjector, parse_severity
 
@@ -10,19 +10,27 @@ from faultforge.injector import NetworkFaultInjector, parse_severity
 class TestNetworkFaultInjector:
     def test_inject_delay(self) -> None:
         injector = NetworkFaultInjector()
-        with patch("faultforge.injector.subprocess.run") as mock_run:
+        with (
+            patch.object(injector, "_get_pid", return_value="12345"),
+            patch("faultforge.injector.subprocess.run") as mock_run,
+        ):
             injector.inject_delay("etcd0", 100)
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
-            assert "docker" in args
-            assert "exec" in args
-            assert "etcd0" in args
+            assert "nsenter" in args
+            assert "-t" in args
+            assert "12345" in args
+            assert "-n" in args
+            assert "tc" in args
             assert "delay" in args
             assert "100ms" in args
 
     def test_inject_loss(self) -> None:
         injector = NetworkFaultInjector()
-        with patch("faultforge.injector.subprocess.run") as mock_run:
+        with (
+            patch.object(injector, "_get_pid", return_value="12345"),
+            patch("faultforge.injector.subprocess.run") as mock_run,
+        ):
             injector.inject_loss("etcd0", 5.0)
             args = mock_run.call_args[0][0]
             assert "loss" in args
@@ -30,18 +38,27 @@ class TestNetworkFaultInjector:
 
     def test_clear(self) -> None:
         injector = NetworkFaultInjector()
-        with patch("faultforge.injector.subprocess.run") as mock_run:
+        with (
+            patch.object(injector, "_get_pid", return_value="12345"),
+            patch("faultforge.injector.subprocess.run") as mock_run,
+        ):
             injector.clear("etcd0")
             args = mock_run.call_args[0][0]
             assert "del" in args
             assert "root" in args
 
-    def test_custom_docker_bin(self) -> None:
-        injector = NetworkFaultInjector(docker_bin="/usr/bin/docker")
+    def test_get_pid(self) -> None:
+        injector = NetworkFaultInjector()
         with patch("faultforge.injector.subprocess.run") as mock_run:
-            injector.inject_delay("etcd0", 50)
-            args = mock_run.call_args[0][0]
-            assert args[0] == "/usr/bin/docker"
+            mock_run.return_value = MagicMock(stdout="54321\n")
+            pid = injector._get_pid("etcd0")
+            assert pid == "54321"
+            mock_run.assert_called_once_with(
+                ["docker", "inspect", "-f", "{{.State.Pid}}", "etcd0"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
 
 
 class TestParseSeverity:

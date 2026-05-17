@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 class NetworkFaultInjector:
     """Inject network faults into Docker containers using tc netem.
 
-    Replaces Blockade. Works by running tc commands inside the target
-    container via ``docker exec``.
+    Replaces Blockade. Uses ``nsenter`` to run ``tc`` in the container's
+    network namespace from the host, avoiding the need for ``tc`` inside
+    the container image.
     """
 
     def __init__(self, docker_bin: str = "docker") -> None:
@@ -33,8 +34,18 @@ class NetworkFaultInjector:
         except subprocess.CalledProcessError:
             pass
 
+    def _get_pid(self, container: str) -> str:
+        result = subprocess.run(
+            [self._docker, "inspect", "-f", "{{.State.Pid}}", container],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+
     def _run_tc(self, container: str, tc_args: str) -> None:
-        cmd = [self._docker, "exec", container, "tc"] + tc_args.split()
+        pid = self._get_pid(container)
+        cmd = ["nsenter", "-t", pid, "-n", "tc"] + tc_args.split()
         logger.info("Running: %s", " ".join(cmd))
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
