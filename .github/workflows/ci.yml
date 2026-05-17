@@ -115,18 +115,3 @@ jobs:
       - name: Run tests
         run: uv run --project xinda pytest xinda/ --ignore=xinda/examples --ignore=xinda/data-analysis -v || test $? -eq 5
 
-  # ── Anduril (Java in-process fault provider) ──────────────────────
-  anduril-build:
-    name: "Anduril: Build"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: "25"
-
-      - name: Build Anduril tool
-        run: mvn install -DskipTests -B -q
-        working-directory: anduril/tool
