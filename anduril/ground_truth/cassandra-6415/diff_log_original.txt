@@ -1,8 +1,0 @@
-CompactionTask 115
-ThriftServer$ThriftServerThread 135
-CompactionTask 275
-MigrationManager 220
-MigrationManager 234
-FBUtilities 361
-CassandraDaemon$2 187
-ColumnFamilyStore 740

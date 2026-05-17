@@ -1,7 +1,0 @@
-target/
-trials/
-deps/
-tree.json
-pid.txt
-blockmap.txt
-experiment.out

@@ -1,8 +1,0 @@
-DFSInputStream 1035
-DFSInputStream 1016
-Server$Connection 2189
-DFSInputStream 1006
-DFSInputStream 1260
-JvmPauseMonitor$Monitor 202
-BlockReaderFactory 772
-DFSInputStream 1107
