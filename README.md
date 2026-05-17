@@ -4,22 +4,21 @@ A symptom-guided fault reproduction orchestrator for distributed systems.
 
 ## Overview
 
-FaultForge composes environmental slow-fault providers (Xinda) with in-process fault providers (Anduril) to automatically search for and minimize the fault recipe that reproduces a known production issue.
+FaultForge directly integrates the Xinda-derived runtime to automatically search for and minimize fault trials that reproduce known production issues. Search emits executable `Trial` objects, which are run against real distributed systems and scored by a symptom oracle.
 
 ## Architecture
 
 ```text
-                 production issue / oracle
-                           │
-                           ▼
-                 orchestrator/ (Python)
-                 search │ oracle │ minimize
-                    │              │
-                    ▼              ▼
-        xinda/                anduril/
-        environmental         Java in-process
-        slow-fault provider   static analysis + TraceAgent
-        network/disk/cpu      thread delay / exception
+                  production issue / oracle
+                            │
+                            ▼
+                  faultforge/ (Python)
+                  search │ oracle │ minimize
+                            │
+                            ▼
+                  TrialRunner (integrated runtime)
+                  systems/ configs/
+                  network/disk/cpu slow faults
 ```
 
 ## Components
@@ -27,14 +26,14 @@ FaultForge composes environmental slow-fault providers (Xinda) with in-process f
 | Component | Role |
 |---|---|
 | `faultforge/src/faultforge/` | Symptom oracle, search, minimization, experiment control |
-| `xinda/` | Environmental slow-fault SDK (`xinda-sdk`), cluster lifecycle, benchmarks |
-| `anduril/` | Java in-process fault injection, static analysis, feedback-guided search |
-
-Xinda is packaged as a local uv dependency (`xinda-sdk`) and consumed directly by FaultForge.
+| `faultforge/src/faultforge/trial.py` | Canonical `Trial`, `SlowFault`, `SystemConfig`, `BenchmarkConfig` |
+| `faultforge/src/faultforge/runner.py` | `TrialRunner` executes trials against real systems |
+| `faultforge/src/faultforge/systems/` | Docker/Blockade/CharybdeFS lifecycle for 8 distributed systems |
+| `xinda/` | Reference copy for result comparison (not imported by FaultForge) |
 
 ## Motivation
 
-Existing slow-fault testing systems such as Xinda explore the impact of configured slow faults under benchmarks. FaultForge targets a complementary problem: given a production issue symptom, automatically search for and minimize a fault recipe that reproduces that symptom.
+Existing slow-fault testing systems such as Xinda explore the impact of configured slow faults under benchmarks. FaultForge targets a complementary problem: given a production issue symptom, automatically search for and minimize a fault trial that reproduces that symptom.
 
 ## Quick Start
 
@@ -42,8 +41,8 @@ Existing slow-fault testing systems such as Xinda explore the impact of configur
 cd faultforge
 uv sync
 uv run faultforge --help
+uv run faultforge search --help
 ```
-
 
 ## Roadmap
 
