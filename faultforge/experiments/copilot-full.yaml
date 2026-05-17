@@ -1,0 +1,57 @@
+name: copilot-full
+runs:
+  - name: nw-master-slow-100ms
+    issue_id: ""
+    system: copilot
+    benchmark: ycsb
+    oracle: oracles/copilot-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [master]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-master-slow-1s
+    issue_id: ""
+    system: copilot
+    benchmark: ycsb
+    oracle: oracles/copilot-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [master]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: fs-master-100000us
+    issue_id: ""
+    system: copilot
+    benchmark: ycsb
+    oracle: oracles/copilot-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [master]
+    fault_models: [fs]
+    magnitudes_ms: [100000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: baseline-none
+    issue_id: ""
+    system: copilot
+    benchmark: ycsb
+    oracle: oracles/copilot-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [master]
+    fault_models: [none]
+    magnitudes_ms: [0]
+    start_times_s: [5]
+    durations_s: [30]

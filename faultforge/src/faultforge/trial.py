@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Literal
 
-type SlowFaultKind = Literal["nw", "fs", "none"]
+type SlowFaultKind = Literal["nw", "fs", "cpu", "mem", "process", "none"]
 
 
 @dataclass
@@ -52,6 +52,60 @@ class SlowFault:
             location=location,
             duration_s=duration_s,
             severity=severity,
+            start_s=start_s,
+            if_restart=if_restart,
+        )
+
+    @classmethod
+    def cpu(
+        cls,
+        location: str,
+        cpus: str,
+        duration_s: int,
+        start_s: int = 0,
+        if_restart: bool = False,
+    ) -> SlowFault:
+        return cls(
+            fault_type="cpu",
+            location=location,
+            duration_s=duration_s,
+            severity=f"cpus-{cpus}",
+            start_s=start_s,
+            if_restart=if_restart,
+        )
+
+    @classmethod
+    def memory(
+        cls,
+        location: str,
+        memory: str,
+        duration_s: int,
+        start_s: int = 0,
+        if_restart: bool = False,
+    ) -> SlowFault:
+        return cls(
+            fault_type="mem",
+            location=location,
+            duration_s=duration_s,
+            severity=f"memory-{memory}",
+            start_s=start_s,
+            if_restart=if_restart,
+        )
+
+    @classmethod
+    def process(
+        cls,
+        location: str,
+        action: str = "restart",
+        duration_s: int = 0,
+        start_s: int = 0,
+        if_restart: bool = False,
+    ) -> SlowFault:
+        return cls(
+            fault_type="process",
+            location=location,
+            duration_s=duration_s,
+            severity=action,
             start_s=start_s,
             if_restart=if_restart,
         )

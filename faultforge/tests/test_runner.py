@@ -32,7 +32,7 @@ def test_runner_rejects_empty_faults(etcd_trial: Trial) -> None:
 
 def test_runner_returns_success_on_good_run(etcd_trial: Trial) -> None:
     fake_system = MagicMock()
-    fake_system.log.info = "/tmp/test.log"
+    fake_system.log.compose = "/tmp/test.log"
 
     with patch("faultforge.runner.create_system", return_value=fake_system):
         result = TrialRunner().run(etcd_trial)
@@ -58,7 +58,7 @@ def test_runner_passes_multi_fault_trial(etcd_trial: Trial) -> None:
     etcd_trial.faults.append(fault2)
 
     fake_system = MagicMock()
-    fake_system.log.info = "/tmp/multi.log"
+    fake_system.log.compose = "/tmp/multi.log"
 
     with patch("faultforge.runner.create_system", return_value=fake_system) as mock_create:
         result = TrialRunner().run(etcd_trial)

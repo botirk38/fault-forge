@@ -1,0 +1,20 @@
+name: copilot-smoke
+runs:
+  - name: nw-delay-100ms
+    issue_id: ""
+    system: copilot
+    benchmark: ycsb
+    oracle: oracles/copilot-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes:
+      - master
+    fault_models:
+      - nw
+    magnitudes_ms:
+      - 100
+    start_times_s:
+      - 5
+    durations_s:
+      - 10

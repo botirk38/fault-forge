@@ -6,7 +6,7 @@
 # Copy this file and adjust paths for your environment.
 
 data_dir: data
-compose_root: tools
+compose_root: ../xinda/tools
 software_root: software
 charybdefs_mount_dir: /var/lib/docker/cfs_mount/tmp
 docker_bin: docker

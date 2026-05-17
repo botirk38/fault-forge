@@ -1,0 +1,12 @@
+issue:
+  id: "KAFKA-SMOKE-1"
+  system: "kafka"
+  title: "Smoke test — producer/consumer timeout under network delay"
+  source: "synthetic"
+  category: "availability"
+oracle:
+  type: "log-symptom"
+  verdict: "symptom_present"
+  node: ""
+  pattern:
+    exception_msg_contains: "timeout"

@@ -1,0 +1,117 @@
+name: etcd-full
+runs:
+  # Network faults - leader
+  - name: nw-leader-slow-10ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [10]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-leader-slow-100ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-leader-slow-1s
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  # Network faults - follower
+  - name: nw-follower-slow-100ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [follower]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  # Filesystem faults - leader (delay in microseconds)
+  - name: fs-leader-10000us
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [fs]
+    magnitudes_ms: [10000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: fs-leader-100000us
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [fs]
+    magnitudes_ms: [100000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: fs-leader-1000000us
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [fs]
+    magnitudes_ms: [1000000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  # Baseline - no faults
+  - name: baseline-none
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd-smoke.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [none]
+    magnitudes_ms: [0]
+    start_times_s: [5]
+    durations_s: [30]

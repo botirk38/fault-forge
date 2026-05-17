@@ -43,7 +43,7 @@ class TrialRunner:
             return TrialResult(
                 success=True,
                 trial=trial,
-                log_path=system.log.info,
+                log_path=system.log.compose,
             )
         except KeyboardInterrupt:
             raise
@@ -79,7 +79,7 @@ class TrialRunner:
     def _validate(self, trial: Trial) -> None:
         """Validate trial configuration before execution."""
         for fault in trial.faults:
-            if fault.fault_type not in ("nw", "fs", "none"):
+            if fault.fault_type not in ("nw", "fs", "cpu", "mem", "process", "none"):
                 raise ValueError(f"Unknown fault type: {fault.fault_type}")
         if not trial.faults:
             raise ValueError("Trial must have at least one fault")

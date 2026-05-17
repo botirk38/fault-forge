@@ -1,0 +1,12 @@
+issue:
+  id: "HADOOP-SMOKE-1"
+  system: "hadoop"
+  title: "Smoke test — task timeout under network delay"
+  source: "synthetic"
+  category: "availability"
+oracle:
+  type: "log-symptom"
+  verdict: "symptom_present"
+  node: ""
+  pattern:
+    exception_msg_contains: "timeout"

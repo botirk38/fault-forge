@@ -99,23 +99,85 @@ class SearchConfig:
     oracle: Oracle | None = None
 
     def _single_fault_candidates(self) -> list[SlowFault]:
-        return [
-            SlowFault(
-                fault_type=fault_model,
-                location=node,
-                duration_s=int(duration_s),
-                severity=f"slow-{delay_ms}ms",
-                start_s=int(start_s),
-                if_restart=False,
-            )
-            for node, fault_model, delay_ms, start_s, duration_s in itertools.product(
-                self.nodes,
-                self.fault_models,
-                self.magnitudes_ms,
-                self.start_times_s,
-                self.durations_s,
-            )
-        ]
+        faults: list[SlowFault] = []
+        for node, fault_model, start_s, duration_s in itertools.product(
+            self.nodes,
+            self.fault_models,
+            self.start_times_s,
+            self.durations_s,
+        ):
+            if fault_model == "nw":
+                for delay_ms in self.magnitudes_ms:
+                    faults.append(
+                        SlowFault(
+                            fault_type="nw",
+                            location=node,
+                            duration_s=int(duration_s),
+                            severity=f"slow-{delay_ms}ms",
+                            start_s=int(start_s),
+                            if_restart=False,
+                        )
+                    )
+            elif fault_model == "fs":
+                for delay_us in self.magnitudes_ms:
+                    faults.append(
+                        SlowFault(
+                            fault_type="fs",
+                            location=node,
+                            duration_s=int(duration_s),
+                            severity=f"slow-{delay_us}us",
+                            start_s=int(start_s),
+                            if_restart=False,
+                        )
+                    )
+            elif fault_model == "cpu":
+                for cpus in ["0.25", "0.5", "1.0"]:
+                    faults.append(
+                        SlowFault(
+                            fault_type="cpu",
+                            location=node,
+                            duration_s=int(duration_s),
+                            severity=f"cpus-{cpus}",
+                            start_s=int(start_s),
+                            if_restart=False,
+                        )
+                    )
+            elif fault_model == "mem":
+                for mem in ["256m", "512m", "1g"]:
+                    faults.append(
+                        SlowFault(
+                            fault_type="mem",
+                            location=node,
+                            duration_s=int(duration_s),
+                            severity=f"memory-{mem}",
+                            start_s=int(start_s),
+                            if_restart=False,
+                        )
+                    )
+            elif fault_model == "process":
+                for action in ["restart", "stop"]:
+                    faults.append(
+                        SlowFault(
+                            fault_type="process",
+                            location=node,
+                            duration_s=int(duration_s),
+                            severity=action,
+                            start_s=int(start_s),
+                            if_restart=False,
+                        )
+                    )
+            elif fault_model == "none":
+                faults.append(
+                    SlowFault(
+                        fault_type="none",
+                        location=node,
+                        duration_s=int(duration_s),
+                        severity="none",
+                        start_s=int(start_s),
+                        if_restart=False,
+                    )
+                )
+        return faults
 
     def _trial_from_faults(
         self,

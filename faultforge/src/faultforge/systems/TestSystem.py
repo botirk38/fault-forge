@@ -12,7 +12,7 @@ from faultforge.configs.benchmark import *
 from faultforge.configs.logging import Logging
 from faultforge.configs.reslim import ResourceLimit
 from faultforge.configs.tool import Tool
-from faultforge.injector import NetworkFaultInjector, parse_severity
+from faultforge.injectors.registry import InjectorRegistry
 from faultforge.trial import SlowFault, Trial
 
 
@@ -96,7 +96,7 @@ class TestSystem:
         )
         self.info(f"commit: {p.stdout.decode('utf-8').strip()}")
         self.cleanup()
-        self._injector = NetworkFaultInjector()
+        self._injector = InjectorRegistry(cfs_source=self.tool.cfs_source)
 
     def _primary_fault(self) -> SlowFault:
         for f in self.faults:
@@ -359,6 +359,12 @@ class TestSystem:
             self._inject_network_fault(fault)
         elif fault.fault_type == "fs":
             self._inject_fs_fault(fault, cfs_pattern)
+        elif fault.fault_type == "cpu":
+            self._inject_cpu_fault(fault)
+        elif fault.fault_type == "mem":
+            self._inject_mem_fault(fault)
+        elif fault.fault_type == "process":
+            self._inject_process_fault(fault)
         else:
             return None
 
@@ -407,23 +413,63 @@ class TestSystem:
             time.sleep(fault.duration_s)
 
         self.info("fault command ENDs", rela=self.start_time)
-        if fault.fault_type == "nw":
-            self._injector.clear(fault.location)
+        self._clear_fault(fault)
         self.info("fault actually ENDs", rela=self.start_time)
 
+    def _clear_fault(self, fault: SlowFault) -> None:
+        if fault.fault_type == "nw":
+            self._injector.clear("nw", fault.location)
+        elif fault.fault_type in ("cpu", "mem"):
+            self._injector.clear(fault.fault_type, fault.location)
+        elif fault.fault_type == "fs":
+            self._injector.clear("fs", fault.location)
+
     def _inject_network_fault(self, fault: SlowFault) -> None:
-        kind, value = parse_severity(fault.severity)
+        kind, value = self._parse_severity(fault.severity)
         self.info(
             f"Injecting network fault: {kind}={value} on {fault.location}", rela=self.start_time
         )
-        if kind == "delay":
-            self._injector.inject_delay(fault.location, value)
-        elif kind == "loss":
-            self._injector.inject_loss(fault.location, value)
+        self._injector.inject("nw", fault.location, kind=kind, value=value)
         self.info(f"Network fault injected on {fault.location}", rela=self.start_time)
 
+    def _inject_cpu_fault(self, fault: SlowFault) -> None:
+        cpus = fault.severity.replace("cpus-", "")
+        self.info(f"Injecting CPU fault: cpus={cpus} on {fault.location}", rela=self.start_time)
+        self._injector.inject("cpu", fault.location, kind="cpu", value=cpus)
+        self.info(f"CPU fault injected on {fault.location}", rela=self.start_time)
+
+    def _inject_mem_fault(self, fault: SlowFault) -> None:
+        memory = fault.severity.replace("memory-", "")
+        self.info(
+            f"Injecting memory fault: memory={memory} on {fault.location}", rela=self.start_time
+        )
+        self._injector.inject("mem", fault.location, kind="mem", value=memory)
+        self.info(f"Memory fault injected on {fault.location}", rela=self.start_time)
+
+    def _inject_process_fault(self, fault: SlowFault) -> None:
+        action = fault.severity
+        self.info(f"Injecting process fault: {action} on {fault.location}", rela=self.start_time)
+        self._injector.inject("process", fault.location, kind=action)
+        self.info(f"Process fault injected on {fault.location}", rela=self.start_time)
+
     def _inject_fs_fault(self, fault: SlowFault, cfs_pattern=None) -> None:
-        self.info(f"Filesystem fault injection not yet implemented for {fault.location}")
+        delay_us = fault.severity.replace("slow-", "").replace("us", "")
+        self.info(
+            f"Injecting filesystem fault: delay={delay_us}us on {fault.location}",
+            rela=self.start_time,
+        )
+        self._injector.inject("fs", fault.location, delay=delay_us, pattern=cfs_pattern)
+        self.info(f"Filesystem fault injected on {fault.location}", rela=self.start_time)
+
+    @staticmethod
+    def _parse_severity(severity: str) -> tuple[str, int | float]:
+        if severity.startswith("slow-"):
+            val = severity.replace("slow-", "").replace("ms", "")
+            return ("delay", int(val))
+        if severity.startswith("loss-"):
+            val = severity.replace("loss-", "").replace("pct", "")
+            return ("loss", float(val))
+        raise ValueError(f"Unknown severity format: {severity}")
 
     def inject(self, cfs_pattern=None):
         for fault in self.faults:

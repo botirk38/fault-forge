@@ -1,12 +1,12 @@
 issue:
   id: "ETCD-SMOKE-1"
   system: "etcd"
-  title: "Smoke test — any error under network delay"
+  title: "Smoke test — request timeout or leader change under network delay"
   source: "synthetic"
   category: "availability"
 oracle:
   type: "log-symptom"
   verdict: "symptom_present"
-  node: "leader"
+  node: ""
   pattern:
-    log_level: "ERROR"
+    exception_msg_contains: "request timed out"
