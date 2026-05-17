@@ -21,7 +21,6 @@ class Etcd(TestSystem):
             elif self.cluster_size == 20:
                 time.sleep(40)
             self.docker_get_status()
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up_charybdefs_etcd()
@@ -57,9 +56,7 @@ class Etcd(TestSystem):
             self._wait_till_official_ends()
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
             cmd = "ps aux | grep 'docker-compose' | grep -e 'T' -e 'S' | awk '{print $2}' | xargs kill -9"
             _ = subprocess.run(

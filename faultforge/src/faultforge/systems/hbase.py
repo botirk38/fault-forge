@@ -15,7 +15,6 @@ class HBase(TestSystem):
             time.sleep(60)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up()
@@ -53,9 +52,7 @@ class HBase(TestSystem):
             self.inject_thread.join()
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
         self.info("THE END")
         self.info(self.log.data_dir)
@@ -81,10 +78,6 @@ class HBase(TestSystem):
             self.info("TABLE:usertable COLUMNFAMILY:family initiation timeout (60s)")
             self._post_process()
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             self.info("THE END")
             exit(1)
 
@@ -123,10 +116,6 @@ class HBase(TestSystem):
             )
             self._post_process()
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             self.info("THE END")
             exit(1)
 
@@ -161,10 +150,6 @@ class HBase(TestSystem):
             )
             self._post_process()
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             self.info("THE END")
             exit(1)
 
@@ -202,10 +187,6 @@ class HBase(TestSystem):
             )
             self._post_process()
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             self.info("THE END")
             exit(1)
 
@@ -245,10 +226,6 @@ class HBase(TestSystem):
             )
             self._post_process()
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             self.info("THE END")
             exit(1)
 

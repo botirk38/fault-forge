@@ -245,7 +245,7 @@ def test_experiment_runs_and_writes_files(tmp_path: Path) -> None:
 
     runner = CliRunner()
 
-    with patch("faultforge.cli.ExperimentRunner") as mock_runner_cls:
+    with patch("faultforge.experiment.ExperimentRunner") as mock_runner_cls:
         mock_runner = MagicMock()
         mock_result = MagicMock()
         mock_result.name = "baseline"

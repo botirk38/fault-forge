@@ -122,14 +122,21 @@ class TestResourceLimit:
 
 
 class TestTrialPaths:
-    def test_defaults(self):
-        p = TrialPaths.defaults()
-        assert "workdir" in p.log_root_dir
+    def test_empty_defaults(self):
+        p = TrialPaths()
+        assert p.log_root_dir == ""
+        assert p.install_root == ""
+        assert p.tooling_root == ""
 
-    def test_has_install_and_tooling_roots(self):
-        p = TrialPaths.defaults()
-        assert p.install_root != ""
-        assert p.tooling_root != ""
+    def test_custom_values(self):
+        p = TrialPaths(
+            log_root_dir="/data",
+            install_root="/software",
+            tooling_root="/tools",
+        )
+        assert p.log_root_dir == "/data"
+        assert p.install_root == "/software"
+        assert p.tooling_root == "/tools"
 
 
 class TestTrial:

@@ -12,6 +12,7 @@ from faultforge.configs.benchmark import *
 from faultforge.configs.logging import Logging
 from faultforge.configs.reslim import ResourceLimit
 from faultforge.configs.tool import Tool
+from faultforge.injector import NetworkFaultInjector, parse_severity
 from faultforge.trial import SlowFault, Trial
 
 
@@ -95,7 +96,7 @@ class TestSystem:
         )
         self.info(f"commit: {p.stdout.decode('utf-8').strip()}")
         self.cleanup()
-        self.blockade_retry = False
+        self._injector = NetworkFaultInjector()
 
     def _primary_fault(self) -> SlowFault:
         for f in self.faults:
@@ -143,16 +144,10 @@ class TestSystem:
     def cleanup(self):
         client = docker.from_env()
         containers = client.containers.list(all=True)
-        for container in containers:
-            if container.name == "dummy":
-                self.info("Prior blockade instance detected. Destroying now.")
-                cmd = "blockade destroy"
-                _ = subprocess.run(cmd, shell=True, cwd=self.tool.blockade)
-                break
         if len(containers) > 0:
             self.info(f"Prior docker instance(s) detected. Stopping & removing now.")
-            _ = subprocess.run("docker stop $(docker ps -a -q)", shell=True, check=True)
-            _ = subprocess.run("docker rm $(docker ps -a -q)", shell=True, check=True)
+            _ = subprocess.run("docker stop $(docker ps -a -q)", shell=True, check=False)
+            _ = subprocess.run("docker rm $(docker ps -a -q)", shell=True, check=False)
         keyword = "charybdefs"
         process_list = psutil.process_iter(attrs=["pid", "name", "cmdline"])
         matching_processes = [
@@ -320,53 +315,6 @@ class TestSystem:
         p = subprocess.run(cmd, cwd=self.tool.compose)
         self.info("Docker-compose destroyed")
 
-    def blockade_up(self):
-        primary = self._primary_fault()
-        cp_cmd = f"cp blockade-{primary.severity}.yaml blockade.yaml"
-        p = subprocess.run(cp_cmd, cwd=self.tool.blockade, shell=True)
-        up_cmd = f"blockade up"
-        p = subprocess.run(up_cmd, cwd=self.tool.blockade, stderr=subprocess.PIPE, shell=True)
-        if p.returncode != 0:
-            if not self.blockade_retry:
-                self.blockade_retry = True
-                self.info(f"Blockade failed to start. Retry only once.")
-                p = subprocess.run("rm -rf .blockade", cwd=self.tool.blockade, shell=True)
-                self.blockade_up()
-            else:
-                err_msg = p.stderr.decode("utf-8")
-                raise Exception(
-                    f"Unknown error during blockade initialization. Abort. stderr: {err_msg}."
-                )
-        self.info("Blockade created")
-
-        for container_name in list(self.container_info.keys()):
-            cmd = ["blockade", "add", container_name]
-            _ = subprocess.run(cmd, cwd=self.tool.blockade)
-        self.info("Blockade up and containers added")
-        cmd = ["blockade", "status"]
-        p = subprocess.run(cmd, cwd=self.tool.blockade, stdout=subprocess.PIPE)
-        self.info(p.stdout.decode("utf-8"), if_time=False)
-
-    def check_blockade_slowness(self):
-        p = subprocess.run(
-            "tc qdisc | grep netem",
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-        self.info(p.stdout.decode("utf-8").strip(), if_time=True)
-
-    def blockade_down(self):
-        primary = self._primary_fault()
-        cmd = [
-            "blockade",
-            "--config",
-            ("blockade-" + primary.severity + ".yaml"),
-            "destroy",
-        ]
-        p = subprocess.run(cmd, cwd=self.tool.blockade)
-        self.info("Blockade destroyed")
-
     def test(self):
         pass
 
@@ -400,61 +348,20 @@ class TestSystem:
         if fault.duration_s == -1:
             self.info("Fault duration == -1, no faults shall be injected")
             return None
-        cmd_inject = []
-        cmd_clear = []
-        work_dir = ""
-        if fault.fault_type == "nw":
-            if "flaky" in fault.severity:
-                cmd_inject = ["blockade", "flaky", fault.location]
-                cmd_clear = ["blockade", "fast", fault.location]
-            elif "slow" in fault.severity:
-                cmd_inject = ["blockade", "slow", fault.location]
-                cmd_clear = ["blockade", "fast", fault.location]
-            elif "partition" in fault.severity:
-                cmd_inject = ["blockade", "partition", fault.location]
-                cmd_clear = ["blockade", "join"]
-            else:
-                raise ValueError(
-                    f"Exception: Slow fault severity:{fault.severity} is not a member of {{flaky, slow, partition}}"
-                )
-            work_dir = self.tool.blockade
-        else:
-            if cfs_pattern is None:
-                cmd_inject = ["./inject_client", "--delay", fault.severity]
-            else:
-                cmd_inject = [
-                    "./inject_client",
-                    "--pattern",
-                    cfs_pattern,
-                    "--delay",
-                    fault.severity,
-                ]
-            cmd_clear = ["./inject_client", "--clear"]
-            work_dir = self.tool.cfs_source
-        cmd_inject = " ".join(cmd_inject)
-        cmd_clear = " ".join(cmd_clear)
-        if self.sys_name == "depfast":
-            if fault.fault_type == "nw" and "slow" in fault.severity:
-                delay = fault.severity.split("-")[1]
-                self.info(f"We are injecting in the DepFast way (delay: {delay})")
-                cmd_inject = f"docker exec -it {fault.location} sudo /sbin/tc qdisc add dev eth0 root netem delay {delay}"
-                cmd_clear = (
-                    f"docker exec -it {fault.location} sudo /sbin/tc qdisc del dev eth0 root"
-                )
-            else:
-                raise ValueError(
-                    f"Exception: Fault type:{fault.fault_type} and severity:{fault.severity} are not supported in DepFast"
-                )
+
         cur_time = self.get_current_ts()
         delta_time = fault.start_s - cur_time
         self.info(f"Sleep {delta_time} until next command", rela=self.start_time)
         if delta_time > 0:
             time.sleep(delta_time)
-        self.info("fault command BEGINs", rela=self.start_time)
-        p = subprocess.run(cmd_inject, shell=True, cwd=work_dir)
+
         if fault.fault_type == "nw":
-            self.check_blockade_slowness()
-        self.info("fault actually BEGINs", rela=self.start_time)
+            self._inject_network_fault(fault)
+        elif fault.fault_type == "fs":
+            self._inject_fs_fault(fault, cfs_pattern)
+        else:
+            return None
+
         fault_actually_begin_time = self.get_current_ts()
         if self.sys_name in ["hbase", "crdb"] and self.if_iaso != "None":
             iaso_time = self.get_current_ts()
@@ -484,7 +391,8 @@ class TestSystem:
             cur_time = self.get_current_ts()
             if cur_time - fault_actually_begin_time < fault.duration_s:
                 self.info("after restart: fault command BEGINs", rela=self.start_time)
-                p = subprocess.run(cmd_inject, shell=True, cwd=work_dir)
+                if fault.fault_type == "nw":
+                    self._inject_network_fault(fault)
                 self.info("after restart: fault actually BEGINs", rela=self.start_time)
                 cur_time = self.get_current_ts()
                 delta_time = fault.duration_s - (cur_time - fault_actually_begin_time)
@@ -499,8 +407,23 @@ class TestSystem:
             time.sleep(fault.duration_s)
 
         self.info("fault command ENDs", rela=self.start_time)
-        p = subprocess.run(cmd_clear, shell=True, cwd=work_dir)
+        if fault.fault_type == "nw":
+            self._injector.clear(fault.location)
         self.info("fault actually ENDs", rela=self.start_time)
+
+    def _inject_network_fault(self, fault: SlowFault) -> None:
+        kind, value = parse_severity(fault.severity)
+        self.info(
+            f"Injecting network fault: {kind}={value} on {fault.location}", rela=self.start_time
+        )
+        if kind == "delay":
+            self._injector.inject_delay(fault.location, value)
+        elif kind == "loss":
+            self._injector.inject_loss(fault.location, value)
+        self.info(f"Network fault injected on {fault.location}", rela=self.start_time)
+
+    def _inject_fs_fault(self, fault: SlowFault, cfs_pattern=None) -> None:
+        self.info(f"Filesystem fault injection not yet implemented for {fault.location}")
 
     def inject(self, cfs_pattern=None):
         for fault in self.faults:

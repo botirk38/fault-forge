@@ -9,7 +9,6 @@ class Crdb(TestSystem):
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up()
@@ -42,9 +41,7 @@ class Crdb(TestSystem):
         self._wait_till_benchmark_ends()
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
         self.info("THE END")
 
@@ -149,10 +146,6 @@ class Crdb(TestSystem):
             self.info("database:testdb created succesfully on crdb shell")
         else:
             self.docker_down()
-            if self._primary_fault().fault_type == "nw":
-                self.blockade_down()
-            elif self._primary_fault().fault_type == "fs":
-                self.charybdefs_down()
             raise EnvironmentError("Error creating database:testdb on crdb shell")
 
     def _sysbench_load(self):

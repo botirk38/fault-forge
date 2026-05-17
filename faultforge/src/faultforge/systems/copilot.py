@@ -11,7 +11,6 @@ class Copilot(TestSystem):
             time.sleep(10)
             self.info("A new cluster is properly set up.")
             self.docker_get_status()
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up()
@@ -39,9 +38,7 @@ class Copilot(TestSystem):
         self._wait_till_benchmark_ends()
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
         self.info(f"Log absolute path: {self.log.data_dir}")
         self.info("THE END")

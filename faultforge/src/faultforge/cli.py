@@ -11,7 +11,6 @@ import click
 import yaml
 
 from faultforge import __version__
-from faultforge.experiment import Experiment, ExperimentRunner
 from faultforge.oracle import Oracle
 from faultforge.runner import TrialRunner
 from faultforge.search import (
@@ -183,8 +182,41 @@ def search_cmd(
     click.echo(f"{len(results)} result(s)", err=True)
 
 
+@main.command("preflight")
+@click.argument("experiment", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--runtime", type=click.Path(dir_okay=False, path_type=Path), default=None)
+def preflight_cmd(experiment: Path, runtime: Path | None) -> None:
+    """Validate the runtime environment before running an experiment."""
+    from faultforge.preflight import Preflight
+    from faultforge.runtime import load_runtime
+
+    rt = load_runtime(runtime)
+    report = Preflight(rt).run()
+
+    for check in report.checks:
+        status = "✓" if check.passed else "✗"
+        msg = f"  {status} {check.name}"
+        if check.message:
+            msg += f": {check.message}"
+        click.echo(msg)
+
+    if not report.passed:
+        click.echo(
+            f"\n{len(report.failed)} check(s) failed. Fix before running experiment.",
+            err=True,
+        )
+        raise SystemExit(1)
+    click.echo("\nAll checks passed.", err=True)
+
+
 @main.command("experiment")
 @click.argument("config_file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option(
+    "--runtime",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Runtime config YAML file.",
+)
 @click.option(
     "--output-dir",
     type=click.Path(path_type=Path),
@@ -199,10 +231,15 @@ def search_cmd(
 )
 def experiment_cmd(
     config_file: Path,
+    runtime: Path | None,
     output_dir: Path | None,
     dry_run: bool,
 ) -> None:
     """Run a batch experiment from a YAML config file."""
+    from faultforge.experiment import Experiment, ExperimentRunner
+    from faultforge.runtime import load_runtime
+
+    rt = load_runtime(runtime)
     raw = yaml.safe_load(config_file.read_text(encoding="utf-8"))
     exp = Experiment(
         name=raw["name"],
@@ -245,7 +282,7 @@ def experiment_cmd(
         click.echo(f"{len(exp.configs)} config(s), dry-run complete", err=True)
         return
 
-    results = ExperimentRunner().run(exp)
+    results = ExperimentRunner(TrialRunner(rt)).run(exp)
     for r in results:
         status = "SYMPTOM" if r.any_symptom else "no symptom"
         click.echo(f"[{r.name}] {r.top_match.trial.trial_id if r.top_match else 'n/a'} ({status})")

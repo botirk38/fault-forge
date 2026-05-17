@@ -9,6 +9,7 @@ import time
 import traceback
 from pathlib import Path
 
+from faultforge.runtime import ResolvedRuntime
 from faultforge.systems.registry import create_system
 from faultforge.trial import Trial, TrialPaths, TrialResult
 
@@ -23,6 +24,9 @@ class TrialRunner:
     through the system implementation.
     """
 
+    def __init__(self, runtime: ResolvedRuntime | None = None) -> None:
+        self._runtime = runtime
+
     def run(self, trial: Trial) -> TrialResult:
         """Execute a trial and return the result.
 
@@ -31,7 +35,7 @@ class TrialRunner:
         the error message.
         """
         self._validate(trial)
-        trial.paths = trial.paths or TrialPaths.defaults(trial.system.data_dir)
+        trial.paths = trial.paths or self._resolve_paths(trial)
 
         try:
             system = create_system(trial)
@@ -58,6 +62,19 @@ class TrialRunner:
                 log_path=log_path,
                 error=str(e),
             )
+
+    def _resolve_paths(self, trial: Trial) -> TrialPaths:
+        rt = self._runtime
+        if rt is None:
+            return TrialPaths()
+        return TrialPaths(
+            log_root_dir=rt.data_dir,
+            install_root=rt.software_root,
+            tooling_root=rt.compose_root,
+            software_dir=rt.software_root,
+            tools_dir=rt.compose_root,
+            charybdefs_mount_dir=rt.charybdefs_mount_dir,
+        )
 
     def _validate(self, trial: Trial) -> None:
         """Validate trial configuration before execution."""

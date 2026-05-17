@@ -14,7 +14,6 @@ class Kafka(TestSystem):
             self.docker_up()
             time.sleep(10)
             self.docker_get_status()
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up()
@@ -34,9 +33,6 @@ class Kafka(TestSystem):
             time.sleep(5)
             # then run basic-benchmark:producer
             self.basic_producer()
-            """
-            Currently, since the workload is heavy (50%+ cpu consumed), blockade cmds will take ~25s to finish
-            """
             self.start_time = int(time.time() * 1e9)
             self.inject()
             # wrap-up and end
@@ -57,9 +53,7 @@ class Kafka(TestSystem):
             )
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
         self.info("THE END")
 

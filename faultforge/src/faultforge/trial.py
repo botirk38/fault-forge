@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Literal
 
 type SlowFaultKind = Literal["nw", "fs", "none"]
@@ -284,17 +283,6 @@ class TrialPaths:
     tools_dir: str = ""
     charybdefs_mount_dir: str = "/var/lib/docker/cfs_mount/tmp"
 
-    @classmethod
-    def defaults(cls, data_dir: str = "default") -> TrialPaths:
-        home = Path.home()
-        return cls(
-            log_root_dir=str(home / "workdir" / "data" / data_dir),
-            install_root=str(home / "workdir" / "xinda-software"),
-            tooling_root=str(home / "workdir" / "xinda" / "tools"),
-            software_dir=str(home / "workdir" / "xinda-software"),
-            tools_dir=str(home / "workdir" / "xinda" / "tools"),
-        )
-
 
 @dataclass
 class Trial:
@@ -308,7 +296,7 @@ class Trial:
     resource: ResourceLimit = field(
         default_factory=lambda: ResourceLimit(cpu_limit="4", mem_limit="32G")
     )
-    paths: TrialPaths = field(default_factory=TrialPaths.defaults)
+    paths: TrialPaths | None = None
     iteration: int = 1
     version: str | None = None
 

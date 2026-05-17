@@ -1,0 +1,13 @@
+# Runtime configuration for FaultForge experiments.
+#
+# All paths are resolved relative to the directory where you run
+# ``faultforge experiment ...``, unless absolute.
+#
+# Copy this file and adjust paths for your environment.
+
+data_dir: data
+compose_root: tools
+software_root: software
+charybdefs_mount_dir: /var/lib/docker/cfs_mount/tmp
+docker_bin: docker
+docker_compose_bin: docker-compose
