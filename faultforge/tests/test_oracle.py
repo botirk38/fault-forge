@@ -92,7 +92,7 @@ class TestOracleConstruction:
             "oracle": {"type": "exit-code", "exit_code": 1},
         }
         oracle = Oracle.from_dict(data)
-        assert oracle._config.issue.id == "TEST-1"
+        assert oracle.configured_issue_id == "TEST-1"
         assert oracle._config.oracle.exit_code == 1
 
     def test_invalid_oracle_type_raises(self):

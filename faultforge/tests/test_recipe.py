@@ -1,21 +1,14 @@
-"""Recipe schema validation and discriminated-union serialization."""
+"""Tests for faultforge.recipe."""
 
 from __future__ import annotations
 
 import json
 
-from pydantic import TypeAdapter
-
-from faultforge.fault_provider import (
-    Fault,
-    InProcessFault,
-    SlowFault,
-)
+from faultforge.fault_provider import Fault, InProcessFault, SlowFault
 from faultforge.recipe import Recipe
 
 
-def test_discriminated_union_round_trip_through_json() -> None:
-    adapter: TypeAdapter[Fault] = TypeAdapter(Fault)
+def test_recipe_json_round_trip_carries_fault_payloads() -> None:
     faults: list[Fault] = [
         SlowFault(
             id="sf1",
@@ -30,10 +23,6 @@ def test_discriminated_union_round_trip_through_json() -> None:
             exception_class="java.io.IOException",
         ),
     ]
-
-    for f in faults:
-        round_trip = adapter.validate_python(adapter.dump_python(f))
-        assert isinstance(round_trip, type(f))
 
     recipe = Recipe(issue_id="i1", trial_id="t1", faults=faults)
     blob = recipe.model_dump_json()

@@ -20,6 +20,9 @@ dependencies = [
 requires = ["hatchling>=1.18.0"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+faultforge = "faultforge.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/faultforge"]
 

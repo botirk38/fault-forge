@@ -32,7 +32,7 @@ class ExhaustiveGridStrategy(SearchStrategy):
     """Lexicographic ``itertools.product`` order; take first ``max_trials``."""
 
     def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = grid_recipes_flat(config, issue_id=issue_id)
+        full = config.full_grid_recipes(issue_id=issue_id)
         cap = config.max_trials
         if len(full) > cap:
             logger.info(
@@ -47,7 +47,7 @@ class ShuffledGridStrategy(SearchStrategy):
     """Deterministic shuffle (``strategy_seed``), then first ``max_trials``."""
 
     def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = grid_recipes_flat(config, issue_id=issue_id)
+        full = config.full_grid_recipes(issue_id=issue_id)
         cap = config.max_trials
         rng = random.Random(config.strategy_seed)
         dup = full.copy()
@@ -65,7 +65,7 @@ class RandomSubsetGridStrategy(SearchStrategy):
     """Uniform random sample without replacement; size ``min(max_trials, grid_size)``."""
 
     def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = grid_recipes_flat(config, issue_id=issue_id)
+        full = config.full_grid_recipes(issue_id=issue_id)
         rng = random.Random(config.strategy_seed)
         k = min(config.max_trials, len(full))
         return rng.sample(full, k=k)
@@ -74,58 +74,6 @@ class RandomSubsetGridStrategy(SearchStrategy):
 EXHAUSTIVE_GRID = ExhaustiveGridStrategy()
 SHUFFLED_GRID = ShuffledGridStrategy()
 RANDOM_SUBSET_GRID = RandomSubsetGridStrategy()
-
-
-def _recipe_for_combo(
-    issue_id: str,
-    *,
-    node: str,
-    fault_model: SlowFaultKind,
-    delay_ms: int,
-    start_s: float,
-    duration_s: float,
-) -> Recipe:
-    return Recipe(
-        issue_id=issue_id,
-        trial_id=f"trial-{node}-{fault_model}-{delay_ms}ms",
-        faults=[
-            SlowFault(
-                id="fault-1",
-                fault_type=fault_model,
-                location=node,
-                duration_s=int(duration_s),
-                severity=f"slow-{delay_ms}ms",
-                start_s=int(start_s),
-                if_restart=False,
-            ),
-        ],
-    )
-
-
-def grid_recipes_flat(config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-    """Full Cartesian enumeration (no ``max_trials`` cap); stable product order."""
-    return [
-        _recipe_for_combo(
-            issue_id,
-            node=node,
-            fault_model=fault_model,
-            delay_ms=delay_ms,
-            start_s=start_s,
-            duration_s=duration_s,
-        )
-        for node, fault_model, delay_ms, start_s, duration_s in itertools.product(
-            config.nodes,
-            config.fault_models,
-            config.magnitudes_ms,
-            config.start_times_s,
-            config.durations_s,
-        )
-    ]
-
-
-def select_search_recipes(config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-    """Delegate to ``config.strategy`` (thin helper for callers and tests)."""
-    return config.strategy.select_recipes(config, issue_id=issue_id)
 
 
 @dataclass
@@ -144,9 +92,59 @@ class SearchConfig:
     system_config: SystemConfig | None = None
     benchmark_config: BenchmarkConfig | None = None
 
+    def _trial_recipe(
+        self,
+        issue_id: str,
+        *,
+        node: str,
+        fault_model: SlowFaultKind,
+        delay_ms: int,
+        start_s: float,
+        duration_s: float,
+    ) -> Recipe:
+        return Recipe(
+            issue_id=issue_id,
+            trial_id=f"trial-{node}-{fault_model}-{delay_ms}ms",
+            faults=[
+                SlowFault(
+                    id="fault-1",
+                    fault_type=fault_model,
+                    location=node,
+                    duration_s=int(duration_s),
+                    severity=f"slow-{delay_ms}ms",
+                    start_s=int(start_s),
+                    if_restart=False,
+                ),
+            ],
+        )
+
+    def full_grid_recipes(self, *, issue_id: str = "") -> list[Recipe]:
+        """Stable Cartesian enumeration (no ``max_trials`` cap)."""
+        return [
+            self._trial_recipe(
+                issue_id,
+                node=node,
+                fault_model=fault_model,
+                delay_ms=delay_ms,
+                start_s=start_s,
+                duration_s=duration_s,
+            )
+            for node, fault_model, delay_ms, start_s, duration_s in itertools.product(
+                self.nodes,
+                self.fault_models,
+                self.magnitudes_ms,
+                self.start_times_s,
+                self.durations_s,
+            )
+        ]
+
     def recipes(self, *, issue_id: str = "") -> list[Recipe]:
-        """Full Cartesian enumeration (ignores ``max_trials`` and ``strategy``)."""
-        return grid_recipes_flat(self, issue_id=issue_id)
+        """Full grid (alias for ``full_grid_recipes``; ignores strategy / ``max_trials``)."""
+        return self.full_grid_recipes(issue_id=issue_id)
+
+    def bounded_recipes(self, *, issue_id: str = "") -> list[Recipe]:
+        """Grid slice chosen by ``self.strategy`` + ``max_trials``."""
+        return self.strategy.select_recipes(self, issue_id=issue_id)
 
 
 @dataclass
@@ -163,7 +161,7 @@ class Searcher:
         self._provider = provider
 
     def run(self, config: SearchConfig, issue_id: str = "") -> list[SearchResult]:
-        recipes_slice = config.strategy.select_recipes(config, issue_id=issue_id)
+        recipes_slice = config.bounded_recipes(issue_id=issue_id)
 
         results: list[SearchResult] = []
         sy, bm = config.system_config, config.benchmark_config

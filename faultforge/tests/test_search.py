@@ -14,7 +14,6 @@ from faultforge.search import (
     SHUFFLED_GRID,
     SearchConfig,
     Searcher,
-    select_search_recipes,
 )
 
 
@@ -129,8 +128,8 @@ class TestSearchStrategies:
             strategy=RANDOM_SUBSET_GRID,
             strategy_seed=42,
         )
-        run1 = [r.trial_id for r in select_search_recipes(cfg, issue_id="x")]
-        run2 = [r.trial_id for r in select_search_recipes(cfg, issue_id="x")]
+        run1 = [r.trial_id for r in cfg.bounded_recipes(issue_id="x")]
+        run2 = [r.trial_id for r in cfg.bounded_recipes(issue_id="x")]
         assert run1 == run2
 
     def test_shuffled_differs_from_exhaustive_prefix(self):
@@ -142,7 +141,7 @@ class TestSearchStrategies:
             durations_s=[30.0],
             max_trials=3,
         )
-        ex = [r.trial_id for r in select_search_recipes(cfg, issue_id="")]
+        ex = [r.trial_id for r in cfg.bounded_recipes(issue_id="")]
         cf2 = SearchConfig(
             nodes=cfg.nodes,
             fault_models=cfg.fault_models,
@@ -153,7 +152,7 @@ class TestSearchStrategies:
             strategy=SHUFFLED_GRID,
             strategy_seed=123,
         )
-        sh = [r.trial_id for r in select_search_recipes(cf2, issue_id="")]
+        sh = [r.trial_id for r in cf2.bounded_recipes(issue_id="")]
         assert ex != sh
 
 

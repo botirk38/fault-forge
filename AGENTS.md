@@ -15,8 +15,9 @@ cd faultforge
 
 uv sync
 
-# Run FaultForge CLI (when implemented)
+# Run FaultForge CLI
 uv run faultforge --help
+uv run faultforge search --help
 
 # Lint
 uv run ruff check src/faultforge/

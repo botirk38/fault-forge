@@ -77,6 +77,11 @@ class Oracle:
     def __init__(self, config: IssueOracle) -> None:
         self._config = config
 
+    @property
+    def configured_issue_id(self) -> str:
+        """Issue id from the loaded YAML/config (for CLI and orchestration)."""
+        return self._config.issue.id
+
     @classmethod
     def from_file(cls, path: str | Path) -> Oracle:
         """Load an oracle from a YAML file."""

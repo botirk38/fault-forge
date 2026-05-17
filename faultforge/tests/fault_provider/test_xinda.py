@@ -1,48 +1,130 @@
-"""Smoke tests for Xinda SDK Trial construction.
-
-These tests verify that Trial objects can be constructed for every registered
-system/benchmark combination without requiring Docker or any runtime toolchain.
-"""
+"""Tests for FaultForge ``fault_provider.xinda`` and the Xinda SDK surface it relies on."""
 
 from __future__ import annotations
+
+from unittest.mock import patch
 
 import pytest
 from xinda import (
     BenchmarkConfig,
     ResourceLimit,
-    SlowFault,
     SystemConfig,
     Trial,
     TrialPaths,
     TrialResult,
     XindaClient,
 )
+from xinda import SlowFault as SdkSlowFault
 from xinda.systems.registry import SYSTEMS
 
+from faultforge.fault_provider import InProcessFault
+from faultforge.fault_provider import SlowFault as RecipeSlowFault
+from faultforge.fault_provider.xinda import Xinda
+from faultforge.recipe import Recipe
+
 # ---------------------------------------------------------------------------
-# SlowFault construction
+# FaultForge adapter
 # ---------------------------------------------------------------------------
 
 
-class TestSlowFault:
+@pytest.fixture()
+def etcd_sysbench() -> tuple[SystemConfig, BenchmarkConfig]:
+    return SystemConfig(name="etcd"), BenchmarkConfig.ycsb(workload="a")
+
+
+@pytest.fixture()
+def nw_fault() -> RecipeSlowFault:
+    return RecipeSlowFault(
+        id="fault-1",
+        fault_type="nw",
+        location="leader",
+        duration_s=30,
+        severity="slow-100ms",
+        start_s=0,
+    )
+
+
+def test_wrong_fault_type_for_xinda_raises(
+    etcd_sysbench: tuple[SystemConfig, BenchmarkConfig],
+) -> None:
+    sy, bm = etcd_sysbench
+    recipe = Recipe(
+        trial_id="t-bad-kind",
+        faults=[
+            InProcessFault(id="fault-1", exception_class="java.io.IOException"),
+        ],
+    )
+    with pytest.raises(TypeError):
+        Xinda().run(recipe, sy, bm)
+
+
+def test_xinda_raises_on_unknown_model(
+    etcd_sysbench: tuple[SystemConfig, BenchmarkConfig],
+) -> None:
+    sy, bm = etcd_sysbench
+    fault = RecipeSlowFault.model_construct(
+        id="fault-bad-model",
+        kind="slow",
+        fault_type="garbage-model",
+        location="leader",
+        duration_s=60,
+        severity="slow-50ms",
+        start_s=0,
+        if_restart=False,
+    )
+    recipe = Recipe(trial_id="t3", faults=[fault])
+    with pytest.raises(ValueError, match="unsupported Xinda"):
+        Xinda().run(recipe, sy, bm)
+
+
+def test_xinda_execution_patches_client(
+    etcd_sysbench: tuple[SystemConfig, BenchmarkConfig],
+    nw_fault: RecipeSlowFault,
+) -> None:
+    sy, bm = etcd_sysbench
+    recipe = Recipe(trial_id="t4", faults=[nw_fault])
+
+    mock_tr = TrialResult(
+        success=True,
+        system=sy,
+        benchmark=bm,
+        fault=SdkSlowFault.network(location="leader", severity="slow-100ms", duration_s=30),
+        log_path="/tmp/xinda.log",
+    )
+
+    with patch("faultforge.fault_provider.xinda.XindaClient") as xc:
+        xc.return_value.run.return_value = mock_tr
+        results = Xinda().run(recipe, sy, bm)
+
+    assert len(results) == 1
+    assert results[0].success is True
+    assert results[0].log_path == "/tmp/xinda.log"
+
+
+# ---------------------------------------------------------------------------
+# Xinda SDK: SlowFault construction
+# ---------------------------------------------------------------------------
+
+
+class TestSdkSlowFault:
     def test_network(self):
-        f = SlowFault.network(location="node1", severity="slow-100ms", duration_s=60)
+        f = SdkSlowFault.network(location="node1", severity="slow-100ms", duration_s=60)
         assert f.fault_type == "nw"
         assert f.location == "node1"
         assert f.duration_s == 60
 
     def test_filesystem(self):
-        f = SlowFault.filesystem(location="datanode", severity="10000", duration_s=120)
+        f = SdkSlowFault.filesystem(location="datanode", severity="10000", duration_s=120)
         assert f.fault_type == "fs"
         assert f.location == "datanode"
 
     def test_baseline(self):
-        f = SlowFault(fault_type="none", location="node1", duration_s=-1, severity="none")
+        f = SdkSlowFault(fault_type="none", location="node1", duration_s=-1, severity="none")
         assert f.fault_type == "none"
         assert f.duration_s == -1
 
     def test_with_restart(self):
-        f = SlowFault.network(
+        f = SdkSlowFault.network(
             location="leader", severity="slow-50ms", duration_s=30, start_s=10, if_restart=True
         )
         assert f.if_restart is True
@@ -50,11 +132,11 @@ class TestSlowFault:
 
 
 # ---------------------------------------------------------------------------
-# BenchmarkConfig construction (one test per factory method)
+# Xinda SDK: BenchmarkConfig factories
 # ---------------------------------------------------------------------------
 
 
-class TestBenchmarkConfig:
+class TestSdkBenchmarkConfig:
     def test_ycsb(self):
         b = BenchmarkConfig.ycsb(workload="a", exec_time_s=100)
         assert b.name == "ycsb"
@@ -101,11 +183,11 @@ class TestBenchmarkConfig:
 
 
 # ---------------------------------------------------------------------------
-# SystemConfig construction
+# Xinda SDK: SystemConfig
 # ---------------------------------------------------------------------------
 
 
-class TestSystemConfig:
+class TestSdkSystemConfig:
     def test_minimal(self):
         s = SystemConfig(name="etcd")
         assert s.name == "etcd"
@@ -118,11 +200,11 @@ class TestSystemConfig:
 
 
 # ---------------------------------------------------------------------------
-# ResourceLimit and TrialPaths
+# Xinda SDK: ResourceLimit / TrialPaths
 # ---------------------------------------------------------------------------
 
 
-class TestResourceLimit:
+class TestSdkResourceLimit:
     def test_defaults(self):
         r = ResourceLimit(cpu_limit="4", mem_limit="32G")
         assert r.cpu_limit == "4"
@@ -132,17 +214,16 @@ class TestResourceLimit:
         assert r.mem_limit == "8G"
 
 
-class TestTrialPaths:
+class TestSdkTrialPaths:
     def test_defaults(self):
         p = TrialPaths.defaults()
         assert "workdir" in p.log_root_dir
 
 
 # ---------------------------------------------------------------------------
-# Trial construction for all registered systems
+# Xinda SDK: Trial construction across registered systems
 # ---------------------------------------------------------------------------
 
-# Map each system to a valid (benchmark, location) pair.
 SYSTEM_BENCHMARKS: list[tuple[str, BenchmarkConfig, str]] = [
     ("cassandra", BenchmarkConfig.ycsb(workload="a"), "cas1"),
     ("hbase", BenchmarkConfig.ycsb(workload="a"), "hbase-master"),
@@ -155,7 +236,7 @@ SYSTEM_BENCHMARKS: list[tuple[str, BenchmarkConfig, str]] = [
 ]
 
 
-class TestTrialConstruction:
+class TestSdkTrialConstruction:
     """Verify Trial objects can be built for every registered system."""
 
     def test_registry_has_all_expected_systems(self):
@@ -171,7 +252,7 @@ class TestTrialConstruction:
         trial = Trial(
             system=SystemConfig(name=system_name),
             benchmark=benchmark,
-            fault=SlowFault.network(location=location, severity="slow-100ms", duration_s=60),
+            fault=SdkSlowFault.network(location=location, severity="slow-100ms", duration_s=60),
         )
         assert trial.system.name == system_name
         assert trial.benchmark.name == benchmark.name
@@ -188,23 +269,25 @@ class TestTrialConstruction:
         trial = Trial(
             system=SystemConfig(name=system_name),
             benchmark=benchmark,
-            fault=SlowFault(fault_type="none", location=location, duration_s=-1, severity="none"),
+            fault=SdkSlowFault(
+                fault_type="none", location=location, duration_s=-1, severity="none"
+            ),
         )
         assert trial.fault.fault_type == "none"
 
 
 # ---------------------------------------------------------------------------
-# TrialResult construction
+# Xinda SDK: TrialResult
 # ---------------------------------------------------------------------------
 
 
-class TestTrialResult:
+class TestSdkTrialResult:
     def test_success_result(self):
         r = TrialResult(
             success=True,
             system=SystemConfig(name="etcd"),
             benchmark=BenchmarkConfig.ycsb(workload="a"),
-            fault=SlowFault.network(location="etcd0", severity="slow-100ms", duration_s=60),
+            fault=SdkSlowFault.network(location="etcd0", severity="slow-100ms", duration_s=60),
             log_path="/tmp/log",
         )
         assert r.success is True
@@ -215,7 +298,7 @@ class TestTrialResult:
             success=False,
             system=SystemConfig(name="etcd"),
             benchmark=BenchmarkConfig.ycsb(workload="a"),
-            fault=SlowFault.network(location="etcd0", severity="slow-100ms", duration_s=60),
+            fault=SdkSlowFault.network(location="etcd0", severity="slow-100ms", duration_s=60),
             error="connection refused",
         )
         assert r.success is False
@@ -223,17 +306,17 @@ class TestTrialResult:
 
 
 # ---------------------------------------------------------------------------
-# XindaClient validation
+# Xinda SDK: XindaClient.validate
 # ---------------------------------------------------------------------------
 
 
-class TestXindaClientValidation:
+class TestSdkXindaClientValidation:
     def test_rejects_invalid_fault_type(self):
         client = XindaClient()
         trial = Trial(
             system=SystemConfig(name="etcd"),
             benchmark=BenchmarkConfig.ycsb(workload="a"),
-            fault=SlowFault(
+            fault=SdkSlowFault(
                 fault_type="invalid", location="etcd0", duration_s=60, severity="slow-100ms"
             ),
         )
@@ -246,7 +329,7 @@ class TestXindaClientValidation:
             trial = Trial(
                 system=SystemConfig(name="etcd"),
                 benchmark=BenchmarkConfig.ycsb(workload="a"),
-                fault=SlowFault(
+                fault=SdkSlowFault(
                     fault_type=ft, location="etcd0", duration_s=60, severity="slow-100ms"
                 ),
             )
