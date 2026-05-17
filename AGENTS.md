@@ -38,10 +38,11 @@ uv run ruff check --fix faultforge/
 ## Project Structure
 
 ```
-slow-anduril/
+fault-forge/
 ├── pyproject.toml          # Root FaultForge project config
 ├── uv.lock                 # Lockfile (commit this)
 ├── .python-version         # Python version pin
+├── .github/workflows/ci.yml
 ├── faultforge/             # Core orchestrator package
 │   ├── __init__.py
 │   └── recipe.py           # Multi-fault recipe schema (Pydantic)
@@ -51,13 +52,17 @@ slow-anduril/
 │   ├── main.py
 │   ├── cleanup.py
 │   └── src/xinda/
-├── anduril/                # Java in-process provider (vendored)
-│   ├── tool/
+│       ├── __init__.py
+│       ├── client.py       # XindaClient SDK entry point
+│       ├── trial.py        # Trial, SlowFault, BenchmarkConfig dataclasses
+│       ├── configs/        # Legacy config classes
+│       └── systems/        # System implementations + registry
+├── anduril/                # Java in-process provider (vendored, Java 25)
+│   ├── tool/               # Maven multi-module build
 │   ├── evaluation/
 │   └── systems/
 ├── README.md
-├── PLAN.md
-└── BUILD.md
+└── PLAN.md
 ```
 
 ## Development Workflow

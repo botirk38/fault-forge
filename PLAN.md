@@ -32,7 +32,7 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [x] Move Anduril to `anduril/` subdirectory
 - [x] Clean .gitignore
 - [x] Project README with fork direction
-- [x] Preserve upstream docs as README-Anduril.md
+- [x] Preserve upstream docs as README-Anduril.md (later removed)
 
 ### PR 2: Integrate Xinda and Initialize FaultForge
 
@@ -55,39 +55,39 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [x] Configure `ruff` + `ty` for Xinda (legacy code excluded, SDK boundary checked)
 - [x] Update docs
 
-### PR 4: Add Typed Xinda SDK Surface
+### Typed Xinda SDK Surface
 
-- [ ] Add `xinda/xinda/sdk.py`
-- [ ] Add typed models: `XindaTrialConfig`, `XindaTrialResult`, `SlowFaultConfig`, `BenchmarkConfig`, `SystemConfig`
-- [ ] `run_trial(config)` callable SDK function
-- [ ] Keep CLI/script behavior secondary
+- [x] Add `xinda/src/xinda/trial.py` with typed dataclasses
+- [x] Add typed models: `Trial`, `TrialResult`, `SlowFault`, `BenchmarkConfig`, `SystemConfig`, `ResourceLimit`, `TrialPaths`
+- [x] Add `xinda/src/xinda/client.py` with `XindaClient.run(trial)` callable SDK
+- [x] Add `xinda/src/xinda/systems/registry.py` with system dispatch for all 8 systems
 
-### PR 5: Refactor Xinda Configs
+### Refactor Xinda Configs (future)
 
-- [ ] Modernize `xinda/xinda/configs/`
-- [ ] Replace `SlowFault` with typed config model
+- [ ] Modernize `xinda/src/xinda/configs/`
+- [ ] Replace legacy `SlowFault` with typed config model
 - [ ] Normalize field names
 - [ ] Remove dead compatibility paths
 
-### PR 6: Refactor Xinda Runner Flow
+### Refactor Xinda Runner Flow (future)
 
-- [ ] Extract `main.py` orchestration into `xinda/xinda/runner.py`
+- [ ] Extract `main.py` orchestration into `xinda/src/xinda/runner.py`
 - [ ] CLI becomes a thin wrapper around `runner.run_trial`
 - [ ] Preserve setup → workload → inject → collect → cleanup order
 
-### PR 7: Refactor Xinda System Layer
+### Refactor Xinda System Layer (future)
 
 - [ ] Modernize `TestSystem.py` into a typed base class/module
 - [ ] Keep Docker, Blockade, CharybdeFS behavior
 - [ ] Rename only where it improves clarity
 
-### PR 8: Make Xinda Package Pass Full ruff/ty
+### Make Xinda Package Pass Full ruff/ty (future)
 
 - [ ] Expand checks to all maintained Xinda SDK code
 - [ ] Remove broad ignores for modernized Xinda modules
 - [ ] Keep exclusions only for generated/data-analysis/legacy scripts
 
-### PR 9: Xinda Trial Runner (FaultForge)
+### Xinda Trial Runner in FaultForge (future)
 
 - [ ] Add `faultforge/xinda_runner.py`
 - [ ] Wrap Xinda SDK for single-trial execution
@@ -95,7 +95,7 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [ ] Collect logs/stats output
 - [ ] Clean up cluster after trial
 
-### PR 4: First Xinda Case (ZooKeeper)
+### First Xinda Case — ZooKeeper (future)
 
 - [ ] Add Docker Compose ZooKeeper case
 - [ ] Configure Xinda for ZK network delay
@@ -104,21 +104,14 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 3: Oracle and Search
 
-### PR 10: First Xinda Case (ZooKeeper)
-
-- [ ] Add Docker Compose ZooKeeper case
-- [ ] Configure Xinda for ZK network delay
-- [ ] Run single trial end-to-end
-- [ ] Verify log/stat collection
-
-### PR 11: Symptom Oracle
+### Symptom Oracle
 
 - [ ] Add `faultforge/oracle.py`
 - [ ] Initial signal types: log patterns, latency thresholds, error counts
 - [ ] Score trial output against target symptom
 - [ ] Output: `symptom_score`, `matched_signals`, `success`
 
-### PR 12: Bounded Search Loop
+### Bounded Search Loop
 
 - [ ] Add `faultforge/search.py`
 - [ ] Search over: node, fault model, magnitude, timing
@@ -128,7 +121,7 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 4: Minimization
 
-### PR 13: Recipe Minimizer
+### Recipe Minimizer
 
 - [ ] Add `faultforge/minimizer.py`
 - [ ] Greedy reduce: magnitude, duration, fault count
@@ -137,14 +130,14 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 5: Anduril Integration
 
-### PR 14: Anduril Java Provider
+### Anduril Java Provider
 
 - [ ] Add `faultforge/anduril_runner.py`
 - [ ] Map recipe faults to Anduril injection points
 - [ ] Run Anduril trial with recipe config
 - [ ] Collect trial output
 
-### PR 15: Multi-Provider Trial
+### Multi-Provider Trial
 
 - [ ] Coordinate Xinda + Anduril faults in one trial
 - [ ] Apply environmental faults first
@@ -153,14 +146,14 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ## Phase 6: Evaluation
 
-### PR 16: First Fail-Slow Case
+### First Fail-Slow Case
 
 - [ ] Define ZOOKEEPER-2251 or compatible case
 - [ ] Oracle config for target symptom
 - [ ] Search space definition
 - [ ] Run search, find reproducing recipe
 
-### PR 17: Evaluation Harness
+### Evaluation Harness
 
 - [ ] Compare: Xinda baseline, random search, FaultForge
 - [ ] Run across exception bugs and fail-slow cases
@@ -178,14 +171,22 @@ faultforge/
   search.py
   minimizer.py
 
-xinda/               # vendored Xinda source
-anduril/             # vendored Anduril source
+xinda/                # vendored Xinda source + SDK
+  src/xinda/
+    __init__.py
+    client.py
+    trial.py
+    configs/
+    systems/
 
+anduril/              # vendored Anduril source (Java 25)
+  tool/
+  evaluation/
+  systems/
+
+.github/workflows/ci.yml
 PLAN.md
 README.md
-README-Xinda.md
-README-Anduril.md
-BUILD.md
 pyproject.toml
 uv.lock
 ```
