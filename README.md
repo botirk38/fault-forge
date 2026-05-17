@@ -26,7 +26,7 @@ FaultForge composes environmental slow-fault providers (Xinda) with in-process f
 
 | Component | Role |
 |---|---|
-| `faultforge/src/faultforge/` | Symptom oracle, search, minimization, experiment control |
+| `faultforge/` | Symptom oracle, search, minimization, experiment control |
 | `xinda/` | Environmental slow-fault SDK (`xinda-sdk`), cluster lifecycle, benchmarks |
 | `anduril/` | Java in-process fault injection, static analysis, feedback-guided search |
 
@@ -39,7 +39,6 @@ Existing slow-fault testing systems such as Xinda explore the impact of configur
 ## Quick Start
 
 ```bash
-cd faultforge
 uv sync
 uv run faultforge --help
 ```

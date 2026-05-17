@@ -67,6 +67,6 @@ uv add --project xinda --dev <dev-package>
 ## Key Constraints
 
 - Xinda runs on Python 3.12+
-- Xinda is a local editable dependency of FaultForge (`faultforge/pyproject.toml` points at `../xinda`)
+- Xinda is a local editable dependency of FaultForge (root `pyproject.toml`)
 - `main.py` and `cleanup.py` stay at top level, not under `src/`
 - The package uses `uv_build` as build backend with src layout

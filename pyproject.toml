@@ -2,7 +2,7 @@
 name = "faultforge"
 version = "0.1.0"
 description = "Symptom-guided fault reproduction orchestrator for distributed systems"
-readme = "../README.md"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "click>=8.3.3",
@@ -13,17 +13,11 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
     "tqdm>=4.67.3",
+    "xinda",
 ]
 
-[build-system]
-requires = ["hatchling>=1.18.0"]
-build-backend = "hatchling.build"
-
-[project.scripts]
-faultforge = "faultforge.cli:main"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/faultforge"]
+[tool.uv.sources]
+xinda = { path = "xinda", editable = true }
 
 [dependency-groups]
 dev = [
@@ -40,15 +34,12 @@ line-length = 100
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.extend-per-file-ignores]
-"src/faultforge/systems/*.py" = ["F403", "F405", "E501", "F841", "F541", "UP015", "UP031", "UP024", "E722", "E711", "B007"]
-"src/faultforge/configs/*.py" = ["ALL"]
+"xinda/**/*.py" = ["ALL"]
+"anduril/**/*.py" = ["ALL"]
 
 [tool.ty.environment]
 python-version = "3.12"
 
 [tool.ty.src]
-include = ["src/faultforge/**/*.py"]
-exclude = [
-    "src/faultforge/configs/**",
-    "src/faultforge/systems/**",
-]
+include = ["faultforge/**/*.py"]
+exclude = ["xinda/**", "anduril/**"]
