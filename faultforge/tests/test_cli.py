@@ -207,3 +207,58 @@ def test_search_custom_fault_knobs() -> None:
     assert cfg.start_times_s == [5]
     assert cfg.durations_s == [45]
     assert cfg.max_faults_per_trial == 2
+
+
+_EXP_YAML = """
+name: "quick-test"
+runs:
+  - name: baseline
+    system: etcd
+    benchmark: ycsb
+    max_trials: 1
+    nodes:
+      - leader
+    magnitudes_ms:
+      - 10
+"""
+
+
+def test_experiment_dry_run(tmp_path: Path) -> None:
+    cfg_file = tmp_path / "exp.yaml"
+    cfg_file.write_text(_EXP_YAML.strip(), encoding="utf-8")
+
+    runner = CliRunner()
+    result = runner.invoke(
+        main,
+        ["experiment", str(cfg_file), "--dry-run"],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "[baseline]" in result.output
+    assert "dry-run complete" in result.output
+
+
+def test_experiment_runs_and_writes_files(tmp_path: Path) -> None:
+    cfg_file = tmp_path / "exp.yaml"
+    cfg_file.write_text(_EXP_YAML.strip(), encoding="utf-8")
+    out_dir = tmp_path / "out"
+
+    runner = CliRunner()
+
+    with patch("faultforge.cli.ExperimentRunner") as mock_runner_cls:
+        mock_runner = MagicMock()
+        mock_result = MagicMock()
+        mock_result.name = "baseline"
+        mock_result.any_symptom = False
+        mock_result.top_match.trial.trial_id = "trial-nw-leader-slow-10ms"
+        mock_runner.run.return_value = [mock_result]
+        mock_runner_cls.return_value = mock_runner
+
+        result = runner.invoke(
+            main,
+            ["experiment", str(cfg_file), "--output-dir", str(out_dir)],
+        )
+
+    assert result.exit_code == 0, result.output
+    mock_runner.run.assert_called_once()
+    assert "baseline" in result.output
