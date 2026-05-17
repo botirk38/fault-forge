@@ -1,47 +1,58 @@
-"""Bounded search loop for fault reproduction.
-
-Searches over fault parameters, runs trials, scores against oracle,
-and returns ranked recipes.
-"""
+"""Search grid + trial orchestration."""
 
 from __future__ import annotations
 
 import itertools
 import logging
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
 
 from xinda import BenchmarkConfig, SystemConfig
 
+from faultforge.fault_provider import (
+    FaultProvider,
+    ProviderRunResult,
+    Recipe,
+    SlowFault,
+    SlowFaultKind,
+)
 from faultforge.oracle import Oracle
-from faultforge.recipe import Fault, FaultParams, FaultTarget, FaultTiming, Recipe
-from faultforge.xinda_runner import run_recipe
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class SearchSpace:
-    """Bounded parameter space for fault search."""
+class SearchConfig:
+    """Cartesian knob grid plus how trials run (Xinda ``SlowFault`` recipes)."""
 
     nodes: list[str] = field(default_factory=lambda: ["leader", "follower"])
-    fault_models: list[str] = field(default_factory=lambda: ["network_delay", "disk_delay"])
+    fault_models: list[SlowFaultKind] = field(default_factory=lambda: ["nw", "fs"])
     magnitudes_ms: list[int] = field(default_factory=lambda: [10, 50, 100, 250, 500])
     start_times_s: list[float] = field(default_factory=lambda: [0.0, 10.0, 30.0])
     durations_s: list[float] = field(default_factory=lambda: [30.0, 60.0])
+    max_trials: int = 100
+    oracle: Oracle | None = None
+    system_config: SystemConfig | None = None
+    benchmark_config: BenchmarkConfig | None = None
 
-    def combinations(self) -> list[dict[str, Any]]:
-        """Generate all parameter combinations."""
+    def recipes(self, *, issue_id: str = "") -> list[Recipe]:
+        """Enumerate ``SlowFault`` trial recipes over the Cartesian product."""
         return [
-            {
-                "node": node,
-                "fault_model": model,
-                "delay_ms": mag,
-                "start_s": start,
-                "duration_s": dur,
-            }
-            for node, model, mag, start, dur in itertools.product(
+            Recipe(
+                issue_id=issue_id,
+                trial_id=f"trial-{node}-{fault_model}-{delay_ms}ms",
+                faults=[
+                    SlowFault(
+                        id="fault-1",
+                        fault_type=fault_model,
+                        location=node,
+                        duration_s=int(duration_s),
+                        severity=f"slow-{delay_ms}ms",
+                        start_s=int(start_s),
+                        if_restart=False,
+                    ),
+                ],
+            )
+            for node, fault_model, delay_ms, start_s, duration_s in itertools.product(
                 self.nodes,
                 self.fault_models,
                 self.magnitudes_ms,
@@ -53,114 +64,52 @@ class SearchSpace:
 
 @dataclass
 class SearchResult:
-    """Result of a single search trial."""
-
     recipe: Recipe
     symptom_score: float
     oracle_success: bool
     trial_index: int
-    details: dict[str, Any] = field(default_factory=dict)
+    trials_run: int = 0
 
 
-@dataclass
-class SearchConfig:
-    """Search execution configuration."""
+class Searcher:
+    def __init__(self, provider: FaultProvider) -> None:
+        self._provider = provider
 
-    max_trials: int = 100
-    oracle: Oracle | None = None
-    system_config: SystemConfig | None = None
-    benchmark_config: BenchmarkConfig | None = None
-
-
-class SearchStrategy(ABC):
-    """Pluggable bounded search implementation."""
-
-    @abstractmethod
-    def run(
-        self,
-        search_space: SearchSpace,
-        config: SearchConfig,
-        issue_id: str = "",
-    ) -> list[SearchResult]:
-        """Evaluate trials within search_space according to strategy rules."""
-
-
-class ExhaustiveSearchStrategy(SearchStrategy):
-    """Enumerate Cartesian products from SearchSpace, capped by config.max_trials."""
-
-    def _build_recipe(
-        self,
-        params: dict[str, Any],
-        issue_id: str = "",
-        trial_id: str = "",
-    ) -> Recipe:
-        """Build a Recipe from search parameters."""
-        default_id = f"trial-{params['node']}-{params['fault_model']}-{params['delay_ms']}ms"
-        return Recipe(
-            issue_id=issue_id,
-            trial_id=trial_id or default_id,
-            faults=[
-                Fault(
-                    id="fault-1",
-                    provider="xinda",
-                    model=params["fault_model"],
-                    target=FaultTarget(node=params["node"]),
-                    timing=FaultTiming(
-                        start_s=params["start_s"],
-                        duration_s=params["duration_s"],
-                    ),
-                    params=FaultParams(delay_ms=params["delay_ms"]),
-                ),
-            ],
-        )
-
-    def run(
-        self,
-        search_space: SearchSpace,
-        config: SearchConfig,
-        issue_id: str = "",
-    ) -> list[SearchResult]:
-        """Iterate parameter combinations until max_trials, rank by oracle score."""
-        all_combos = search_space.combinations()
-        combos = all_combos[: config.max_trials]
-
-        if len(all_combos) > config.max_trials:
+    def run(self, config: SearchConfig, issue_id: str = "") -> list[SearchResult]:
+        all_recipes = config.recipes(issue_id=issue_id)
+        recipes_slice = all_recipes[: config.max_trials]
+        if len(all_recipes) > config.max_trials:
             logger.info(
-                "Search space has %d combinations, limiting to %d",
-                len(all_combos),
+                "Search space %d combos, using first %d",
+                len(all_recipes),
                 config.max_trials,
             )
 
         results: list[SearchResult] = []
+        sy, bm = config.system_config, config.benchmark_config
+        oracle = config.oracle
 
-        for i, params in enumerate(combos):
-            recipe = self._build_recipe(params, issue_id=issue_id)
-            trials_run = 0
+        for trial_index, recipe in enumerate(recipes_slice):
             symptom_score = 0.0
             oracle_success = False
+            trials_run = 0
 
-            if config.system_config and config.benchmark_config:
-                trial_results = run_recipe(recipe, config.system_config, config.benchmark_config)
-                trials_run = len(trial_results)
-
-                if trial_results and config.oracle:
-                    log_path = trial_results[0].log_path if trial_results else None
-                    oracle_result = config.oracle.evaluate(log_path=log_path)
-                    symptom_score = oracle_result.symptom_score
-                    oracle_success = oracle_result.success
-            else:
-                logger.info("No system/benchmark config, building recipe only")
+            if sy is not None and bm is not None:
+                outcomes: tuple[ProviderRunResult, ...] = tuple(self._provider.run(recipe, sy, bm))
+                trials_run = len(outcomes)
+                log_path = next((o.log_path for o in outcomes if o.log_path is not None), None)
+                if oracle is not None and log_path is not None:
+                    verdict = oracle.evaluate(log_path=log_path)
+                    symptom_score = verdict.symptom_score
+                    oracle_success = verdict.success
 
             results.append(
                 SearchResult(
                     recipe=recipe,
                     symptom_score=symptom_score,
                     oracle_success=oracle_success,
-                    trial_index=i,
-                    details={
-                        "params": params,
-                        "trials_run": trials_run,
-                    },
+                    trial_index=trial_index,
+                    trials_run=trials_run,
                 )
             )
 

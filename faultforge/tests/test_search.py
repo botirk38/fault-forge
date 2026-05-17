@@ -2,164 +2,162 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
+from faultforge.fault_provider import Recipe
+from faultforge.fault_provider import SlowFault as RecipeSlowFault
+from faultforge.fault_provider.base import ProviderRunResult
+from faultforge.fault_provider.xinda import Xinda
 from faultforge.oracle import Oracle, OracleResult
-from faultforge.search import (
-    ExhaustiveSearchStrategy,
-    SearchConfig,
-    SearchSpace,
-)
-
-# ---------------------------------------------------------------------------
-# SearchSpace
-# ---------------------------------------------------------------------------
+from faultforge.search import SearchConfig, Searcher
 
 
-class TestSearchSpace:
-    def test_default_combinations(self):
-        space = SearchSpace(
+class _FakeRankingProvider:
+    """Test double: emits synthetic logs for oracle scoring."""
+
+    def __init__(self) -> None:
+        self.completed_runs = 0
+
+    def run(self, recipe: Recipe, system_config, benchmark_config):
+        assert system_config is not None and benchmark_config is not None
+        _ = recipe
+        self.completed_runs += 1
+        return (
+            ProviderRunResult(
+                success=True,
+                fault_id="fault-1",
+                log_path=f"/tmp/trial-{self.completed_runs}.log",
+            ),
+        )
+
+
+class TestRecipeEnumeration:
+    def test_single_recipe_from_grid(self):
+        cfg = SearchConfig(
             nodes=["node1"],
-            fault_models=["network_delay"],
+            fault_models=["nw"],
             magnitudes_ms=[100],
             start_times_s=[0.0],
             durations_s=[30.0],
         )
-        combos = space.combinations()
-        assert len(combos) == 1
-        assert combos[0] == {
-            "node": "node1",
-            "fault_model": "network_delay",
-            "delay_ms": 100,
-            "start_s": 0.0,
-            "duration_s": 30.0,
-        }
+        outs = cfg.recipes(issue_id="iss")
+        assert len(outs) == 1
+        recipe = outs[0]
+        assert recipe.issue_id == "iss"
+        assert recipe.trial_id == "trial-node1-nw-100ms"
+        assert len(recipe.faults) == 1
+        f = recipe.faults[0]
+        assert isinstance(f, RecipeSlowFault)
+        assert f.location == "node1"
+        assert f.fault_type == "nw"
+        assert f.duration_s == 30
+        assert f.severity == "slow-100ms"
+        assert f.start_s == 0
 
-    def test_multiple_combinations(self):
-        space = SearchSpace(
+    def test_multiple_recipes_from_grid(self):
+        cfg = SearchConfig(
             nodes=["leader", "follower"],
-            fault_models=["network_delay"],
+            fault_models=["nw"],
             magnitudes_ms=[50, 100],
             start_times_s=[0.0],
             durations_s=[30.0],
         )
-        combos = space.combinations()
-        assert len(combos) == 4  # 2 nodes * 1 model * 2 magnitudes
+        assert len(cfg.recipes()) == 4
 
-    def test_default_values(self):
-        space = SearchSpace()
-        assert "leader" in space.nodes
-        assert "network_delay" in space.fault_models
-        assert 100 in space.magnitudes_ms
-
-
-# ---------------------------------------------------------------------------
-# Recipe building
-# ---------------------------------------------------------------------------
+    def test_default_grid_values(self):
+        cfg = SearchConfig()
+        assert "leader" in cfg.nodes
+        assert "nw" in cfg.fault_models
+        assert "fs" in cfg.fault_models
+        assert 100 in cfg.magnitudes_ms
 
 
-class TestBuildRecipe:
-    def test_builds_recipe_with_single_fault(self):
-        params = {
-            "node": "leader",
-            "fault_model": "network_delay",
-            "delay_ms": 100,
-            "start_s": 10.0,
-            "duration_s": 60.0,
-        }
-        recipe = ExhaustiveSearchStrategy()._build_recipe(
-            params, issue_id="ZK-001", trial_id="t1"
+class TestSearchRecipes:
+    def test_search_config_has_no_provider_field(self):
+        cfg = SearchConfig()
+        assert not hasattr(cfg, "providers")
+
+    def test_recipe_reflects_leader_nw_slow_100(self):
+        cfg = SearchConfig(
+            nodes=["leader"],
+            fault_models=["nw"],
+            magnitudes_ms=[100],
+            start_times_s=[10.0],
+            durations_s=[60.0],
         )
-
+        recipe = cfg.recipes(issue_id="ZK-001")[0]
         assert recipe.issue_id == "ZK-001"
-        assert recipe.trial_id == "t1"
+        assert recipe.trial_id == "trial-leader-nw-100ms"
         assert len(recipe.faults) == 1
-
         fault = recipe.faults[0]
-        assert fault.provider == "xinda"
-        assert fault.model == "network_delay"
-        assert fault.target.node == "leader"
-        assert fault.timing.start_s == 10.0
-        assert fault.timing.duration_s == 60.0
-        assert fault.params.delay_ms == 100
+        assert isinstance(fault, RecipeSlowFault)
+        assert fault.fault_type == "nw"
+        assert fault.location == "leader"
+        assert fault.duration_s == 60
+        assert fault.severity == "slow-100ms"
+        assert fault.start_s == 10
 
-    def test_default_trial_id(self):
-        params = {
-            "node": "follower",
-            "fault_model": "disk_delay",
-            "delay_ms": 250,
-            "start_s": 0.0,
-            "duration_s": 30.0,
-        }
-        recipe = ExhaustiveSearchStrategy()._build_recipe(params)
+    def test_trial_id_includes_follower_fs_250(self):
+        cfg = SearchConfig(
+            nodes=["follower"],
+            fault_models=["fs"],
+            magnitudes_ms=[250],
+            start_times_s=[0.0],
+            durations_s=[30.0],
+        )
+        recipe = cfg.recipes()[0]
         assert "follower" in recipe.trial_id
-        assert "disk_delay" in recipe.trial_id
+        assert "fs" in recipe.trial_id
         assert "250" in recipe.trial_id
 
 
-# ---------------------------------------------------------------------------
-# Search (mocked)
-# ---------------------------------------------------------------------------
-
-
-class TestSearch:
-    def test_search_runs_all_combinations(self):
-        space = SearchSpace(
+class TestSearchRunner:
+    def test_search_runs_all_recipes_when_small_grid(self):
+        cfg = SearchConfig(
             nodes=["n1"],
-            fault_models=["network_delay"],
+            fault_models=["nw"],
             magnitudes_ms=[50],
             start_times_s=[0.0],
             durations_s=[30.0],
+            max_trials=10,
         )
-        config = SearchConfig(max_trials=10)
-        strategy = ExhaustiveSearchStrategy()
+        search = Searcher(Xinda())
 
-        results = strategy.run(space, config, issue_id="TEST-1")
+        results = search.run(cfg, issue_id="TEST-1")
 
         assert len(results) == 1
         assert results[0].recipe.issue_id == "TEST-1"
-        assert results[0].symptom_score == 0.0  # no oracle/system config
+        assert results[0].symptom_score == 0.0
 
     def test_search_respects_max_trials(self):
-        space = SearchSpace(
+        cfg = SearchConfig(
             nodes=["n1", "n2"],
-            fault_models=["network_delay", "disk_delay"],
+            fault_models=["nw", "fs"],
             magnitudes_ms=[50, 100],
             start_times_s=[0.0],
             durations_s=[30.0],
+            max_trials=3,
         )
-        # 2 * 2 * 2 * 1 * 1 = 8 combos, limit to 3
-        config = SearchConfig(max_trials=3)
-        strategy = ExhaustiveSearchStrategy()
+        search = Searcher(Xinda())
 
-        results = strategy.run(space, config)
+        results = search.run(cfg)
 
         assert len(results) == 3
 
     def test_search_ranked_by_score(self):
-        space = SearchSpace(
+        cfg = SearchConfig(
             nodes=["n1", "n2"],
-            fault_models=["network_delay"],
+            fault_models=["nw"],
             magnitudes_ms=[50, 100],
             start_times_s=[0.0],
             durations_s=[30.0],
+            max_trials=10,
         )
-        config = SearchConfig(max_trials=10)
 
-        # Mock run_recipe to return different results per trial
-        call_count = 0
-
-        def mock_run_recipe(*args, **kwargs):
-            nonlocal call_count
-            call_count += 1
-            mock_result = MagicMock()
-            mock_result.log_path = f"/tmp/trial-{call_count}.log"
-            return [mock_result]
+        fake = _FakeRankingProvider()
 
         def mock_oracle_evaluate(*args, **kwargs):
-            nonlocal call_count
-            # Simulate: trial 2 has highest score
-            if call_count == 2:
+            if fake.completed_runs == 2:
                 return OracleResult(
                     issue_id="TEST",
                     symptom_score=0.9,
@@ -173,31 +171,27 @@ class TestSearch:
 
         mock_oracle = MagicMock(spec=Oracle)
         mock_oracle.evaluate.side_effect = mock_oracle_evaluate
-        config.oracle = mock_oracle
-        config.system_config = MagicMock()
-        config.benchmark_config = MagicMock()
-        strategy = ExhaustiveSearchStrategy()
+        cfg.oracle = mock_oracle
+        cfg.system_config = MagicMock()
+        cfg.benchmark_config = MagicMock()
 
-        with patch("faultforge.search.run_recipe", side_effect=mock_run_recipe):
-            results = strategy.run(space, config)
+        results = Searcher(fake).run(cfg)
 
-        # Results should be sorted by score descending
         assert results[0].symptom_score >= results[1].symptom_score
         assert results[0].symptom_score == 0.9
 
     def test_search_without_system_config(self):
-        """Search should work without system/benchmark config (recipe-only mode)."""
-        space = SearchSpace(
+        cfg = SearchConfig(
             nodes=["n1"],
-            fault_models=["network_delay"],
+            fault_models=["nw"],
             magnitudes_ms=[100],
             start_times_s=[0.0],
             durations_s=[30.0],
+            max_trials=5,
         )
-        config = SearchConfig(max_trials=5)
-        strategy = ExhaustiveSearchStrategy()
+        search = Searcher(Xinda())
 
-        results = strategy.run(space, config)
+        results = search.run(cfg)
 
         assert len(results) == 1
-        assert results[0].details["trials_run"] == 0
+        assert results[0].trials_run == 0

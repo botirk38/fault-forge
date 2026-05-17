@@ -7,7 +7,6 @@ system/benchmark combination without requiring Docker or any runtime toolchain.
 from __future__ import annotations
 
 import pytest
-
 from xinda import (
     BenchmarkConfig,
     ResourceLimit,
@@ -19,7 +18,6 @@ from xinda import (
     XindaClient,
 )
 from xinda.systems.registry import SYSTEMS
-
 
 # ---------------------------------------------------------------------------
 # SlowFault construction
