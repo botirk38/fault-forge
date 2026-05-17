@@ -8,8 +8,10 @@ from pathlib import Path
 from typing import cast
 
 import click
+import yaml
 
 from faultforge import __version__
+from faultforge.experiment import Experiment, ExperimentRunner
 from faultforge.oracle import Oracle
 from faultforge.runner import TrialRunner
 from faultforge.search import (
@@ -179,3 +181,72 @@ def search_cmd(
                 f"{r.trial_index}\t{r.trial.trial_id}\t{r.symptom_score}\t{r.oracle_success}"
             )
     click.echo(f"{len(results)} result(s)", err=True)
+
+
+@main.command("experiment")
+@click.argument("config_file", type=click.Path(dir_okay=False, path_type=Path))
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output directory for results. Default: experiments/<name>.",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Plan trials without executing them.",
+)
+def experiment_cmd(
+    config_file: Path,
+    output_dir: Path | None,
+    dry_run: bool,
+) -> None:
+    """Run a batch experiment from a YAML config file."""
+    raw = yaml.safe_load(config_file.read_text(encoding="utf-8"))
+    exp = Experiment(
+        name=raw["name"],
+        configs=[],
+        output_dir=output_dir or Path("experiments"),
+    )
+
+    for entry in raw.get("runs", []):
+        ora: Oracle | None = None
+        oracle_path = entry.get("oracle")
+        issue_id = entry.get("issue_id", "")
+        if oracle_path:
+            ora = Oracle.from_file(Path(oracle_path))
+            issue_id = issue_id or ora.configured_issue_id
+
+        sys_cfg = SystemConfig(name=entry.get("system", "etcd"))
+        bm_cfg = BenchmarkConfig(name=entry.get("benchmark", "ycsb"))
+
+        cfg = SearchConfig(
+            system=sys_cfg,
+            benchmark=bm_cfg,
+            nodes=entry.get("nodes", ["leader", "follower"]),
+            fault_models=entry.get("fault_models", ["nw", "fs"]),
+            magnitudes_ms=entry.get("magnitudes_ms", [10, 50, 100, 250, 500]),
+            start_times_s=entry.get("start_times_s", [0, 10, 30]),
+            durations_s=entry.get("durations_s", [30, 60]),
+            max_faults_per_trial=entry.get("max_faults_per_trial", 1),
+            max_trials=entry.get("max_trials", 100),
+            strategy=_STRATEGY_CHOICES.get(entry.get("strategy", "exhaustive"), EXHAUSTIVE_GRID),
+            strategy_seed=entry.get("seed"),
+            oracle=ora,
+        )
+        exp.add(entry["name"], cfg, issue_id=issue_id)
+
+    if dry_run:
+        for name, cfg in exp.configs:
+            issue_id = exp.issue_ids.get(name, "")
+            trials = cfg.bounded_trials(issue_id=issue_id)
+            click.echo(f"[{name}] {len(trials)} trial(s)")
+        click.echo(f"{len(exp.configs)} config(s), dry-run complete", err=True)
+        return
+
+    results = ExperimentRunner().run(exp)
+    for r in results:
+        status = "SYMPTOM" if r.any_symptom else "no symptom"
+        click.echo(f"[{r.name}] {r.top_match.trial.trial_id if r.top_match else 'n/a'} ({status})")
+    click.echo(f"{len(results)} config(s) completed", err=True)
