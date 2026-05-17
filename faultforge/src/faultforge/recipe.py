@@ -1,4 +1,8 @@
-"""Trial recipe: declarative assembled faults (no orchestration)."""
+"""Trial recipes and future recipe tooling (minimizers, rewriting).
+
+Schemas here stay orchestration-neutral: they reference fault definitions from
+backends (`fault_provider.fault`).
+"""
 
 from __future__ import annotations
 

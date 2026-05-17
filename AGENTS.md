@@ -45,7 +45,7 @@ fault-forge/
 ├── faultforge/             # FaultForge uv project (`faultforge-sdk`)
 │   ├── pyproject.toml      # FaultForge deps, ruff, ty
 │   ├── uv.lock
-│   └── src/faultforge/     # oracle.py, search.py, fault_provider/ (fault.py, recipe.py, …)
+│   └── src/faultforge/     # oracle.py, recipe.py (trial assembly/minimizers), search.py, fault_provider/ (fault adapters + fault.py shapes)
 ├── xinda/                  # Local uv package (environmental fault provider)
 │   ├── pyproject.toml
 │   ├── AGENTS.md           # Xinda-specific dev guide

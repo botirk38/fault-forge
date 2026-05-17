@@ -39,9 +39,10 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [x] Remove `xinda/.git/`, vendored under `xinda/`
 - [x] Remove old `env-anduril/` Go-first framing
 - [x] Init root `uv` project
-- [x] Add `faultforge/` package with recipe schema
+- [x] Add `faultforge/` uv package with oracle + search + **`fault_provider/`** backends
+- [x] **Recipe / fault schema split**: **`faultforge/recipe.py`** (`Recipe`), **`faultforge/fault_provider/fault.py`** (fault unions)
 - [x] Configure `ruff` + `ty`
-- [x] Update docs around FaultForge architecture
+- [x] Update docs (`AGENTS.md`, etc.) around FaultForge architecture
 
 ### PR 4: Migrate Anduril to Java 25
 
@@ -99,13 +100,13 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 - [ ] Remove broad ignores for modernized Xinda modules
 - [ ] Keep exclusions only for generated/data-analysis/legacy scripts
 
-### Xinda Trial Runner in FaultForge (future)
+### FaultForge ⇄ Xinda execution (today)
 
-- [ ] Add `faultforge/xinda_runner.py`
-- [ ] Wrap Xinda SDK for single-trial execution
-- [ ] Pass recipe fault config to Xinda
-- [ ] Collect logs/stats output
-- [ ] Clean up cluster after trial
+Implemented as `faultforge/fault_provider/xinda.py`: **`Xinda.run(recipe, system_config, benchmark_config)`** maps `faultforge.recipe.Recipe` / `fault_provider.fault.SlowFault` into Xinda SDK `Trial`/`XindaClient`.
+
+### Xinda Trial Runner in FaultForge (superseded)
+
+- [x] **Superseded** by `fault_provider/xinda.py` + top-level **`faultforge/recipe.py`** pipeline (no separate `xinda_runner.py`; search builds recipes and calls providers directly).
 
 ### First Xinda Case — ZooKeeper (future)
 
@@ -118,24 +119,37 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ### Symptom Oracle
 
-- [ ] Add `faultforge/oracle.py`
-- [ ] Initial signal types: log patterns, latency thresholds, error counts
-- [ ] Score trial output against target symptom
-- [ ] Output: `symptom_score`, `matched_signals`, `success`
+- [x] Add [`faultforge/oracle.py`](faultforge/src/faultforge/oracle.py) (**Phase 3 baseline** present)
+- [x] Initial signal types: **log-pattern** and **exit-code** YAML-driven oracles (`Oracle.from_file`)
+- [ ] Extend signals: latency thresholds, error aggregates (explicitly deferred)
+- [x] Score trial output → `symptom_score`, `matched_signals`, `success`
 
 ### Bounded Search Loop
 
-- [ ] Add `faultforge/search.py`
-- [ ] Search over: node, fault model, magnitude, timing
-- [ ] Grid or beam search, simple first
-- [ ] Input: search space + oracle config
-- [ ] Output: ranked recipes
+- [x] Add [`faultforge/search.py`](faultforge/src/faultforge/search.py)
+- [x] **Cartesian grid** over: node, fault model (`SlowFaultKind`), magnitude (ms delay), timing (`SearchConfig`)
+- [x] `SearchConfig` builds **`faultforge.recipe.Recipe`** with Xinda-aligned **`SlowFault`** payloads; capped by **`max_trials`**
+- [ ] Beam / smarter search strategies (explicitly deferred — grid-first)
+- [x] Wired path: **`Searcher(provider)`** → `FaultProvider.run(recipe)` once per combo → oracle on **first non-empty `log_path`**
+- [x] Output: **`SearchResult`** list sorted descending by **`symptom_score`** (recipe is source of truth; no standalone `SearchParams` type).
+
+### Fault / provider layering (baseline)
+
+- [x] **Fault models** (`SlowFault`, `InProcessFault`, discriminated **`Fault`**): [`faultforge/fault_provider/fault.py`](faultforge/src/faultforge/fault_provider/fault.py)
+- [x] **`Recipe`** lives in [`faultforge/recipe.py`](faultforge/src/faultforge/recipe.py) (room for Phase 4 minimizer without pulling search into backends)
+- [x] **`FaultProvider`** contract is **run-only** in [`faultforge/fault_provider/base.py`](faultforge/src/faultforge/fault_provider/base.py); concrete **`Xinda` / stub `Anduril`** adapters do not depend on **`search`** (no circular import with orchestration).
+
+### Deferred / stubs
+
+- [ ] **CLI** wrapping `Searcher` config + oracle path (planned)
+- [ ] **`Anduril.run`** executes real Java tool (today returns stub **`ProviderRunResult`**)
 
 ## Phase 4: Minimization
 
 ### Recipe Minimizer
 
-- [ ] Add `faultforge/minimizer.py`
+- [ ] Add `faultforge/minimizer.py` (or submodule under **`faultforge/recipe`** when types grow)
+- [ ] Consume / emit **`faultforge.recipe.Recipe`** (imports fault shapes from **`fault_provider.fault`**)
 - [ ] Greedy reduce: magnitude, duration, fault count
 - [ ] Keep recipe if oracle score stays above threshold
 - [ ] Output minimal recipe
@@ -144,10 +158,9 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 
 ### Anduril Java Provider
 
-- [ ] Add `faultforge/anduril_runner.py`
-- [ ] Map recipe faults to Anduril injection points
-- [ ] Run Anduril trial with recipe config
-- [ ] Collect trial output
+- [ ] Wire real execution in [`faultforge/fault_provider/anduril.py`](faultforge/src/faultforge/fault_provider/anduril.py) (**stub exists** today)
+- [ ] Map `InProcessFault` recipe entries to Anduril injection points
+- [ ] Run Anduril trial with recipe config; collect structured output (**not** a separate top-level runner module unless ergonomics demand it).
 
 ### Multi-Provider Trial
 
@@ -175,17 +188,21 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 ## File Layout
 
 ```text
-faultforge/             # FaultForge uv project
+faultforge/                     # FaultForge uv project (`faultforge-sdk`)
   pyproject.toml
   uv.lock
   src/faultforge/
     __init__.py
-    recipe.py
-    xinda_runner.py
     oracle.py
-    search.py
-    minimizer.py        # future
-    anduril_runner.py   # future
+    recipe.py                 # Recipe + future minimizer-related types
+    search.py                 # SearchConfig, Searcher, SearchResult
+    fault_provider/
+      __init__.py
+      base.py                # FaultProvider (run-only), ProviderRunResult
+      fault.py               # SlowFault, InProcessFault, Fault discriminator
+      xinda.py               # Xinda environmental adapter (SDK)
+      anduril.py             # Anduril stub / future Java bridge
+    minimizer.py             # Phase 4 (not created yet)
 
 xinda/                  # vendored Xinda source + SDK
   src/xinda/
@@ -213,11 +230,12 @@ README.md
 
 ## What We Add
 
-- Symptom oracle with scoring
-- Recipe schema for multi-fault trials
-- Search over fault parameters
-- Recipe minimization
-- Multi-provider coordination
+- Symptom oracle with scoring (baseline log + exit-code)
+- **`faultforge/recipe.py`**: declarative **`Recipe`** (extensible toward minimization)
+- **`fault_provider/`**: **`Fault`** schema + **`Xinda`/`Anduril`** run adapters (`FaultProvider` protocol)
+- **Search**: Cartesian grid enumeration + oracle-ranked results (`search.py`)
+- Recipe minimization (Phase 4, not started)
+- Multi-provider coordination (**Phase 5** future)
 
 ## Risks
 

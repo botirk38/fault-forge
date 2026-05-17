@@ -4,12 +4,18 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from faultforge.fault_provider import Recipe
 from faultforge.fault_provider import SlowFault as RecipeSlowFault
 from faultforge.fault_provider.base import ProviderRunResult
 from faultforge.fault_provider.xinda import Xinda
 from faultforge.oracle import Oracle, OracleResult
-from faultforge.search import SearchConfig, Searcher
+from faultforge.recipe import Recipe
+from faultforge.search import (
+    RANDOM_SUBSET_GRID,
+    SHUFFLED_GRID,
+    SearchConfig,
+    Searcher,
+    select_search_recipes,
+)
 
 
 class _FakeRankingProvider:
@@ -109,6 +115,46 @@ class TestSearchRecipes:
         assert "follower" in recipe.trial_id
         assert "fs" in recipe.trial_id
         assert "250" in recipe.trial_id
+
+
+class TestSearchStrategies:
+    def test_random_subset_respects_seed(self):
+        cfg = SearchConfig(
+            nodes=["a", "b"],
+            fault_models=["nw"],
+            magnitudes_ms=[10, 20],
+            start_times_s=[0.0],
+            durations_s=[30.0],
+            max_trials=2,
+            strategy=RANDOM_SUBSET_GRID,
+            strategy_seed=42,
+        )
+        run1 = [r.trial_id for r in select_search_recipes(cfg, issue_id="x")]
+        run2 = [r.trial_id for r in select_search_recipes(cfg, issue_id="x")]
+        assert run1 == run2
+
+    def test_shuffled_differs_from_exhaustive_prefix(self):
+        cfg = SearchConfig(
+            nodes=["n1"],
+            fault_models=["nw"],
+            magnitudes_ms=[1, 2, 3],
+            start_times_s=[0.0],
+            durations_s=[30.0],
+            max_trials=3,
+        )
+        ex = [r.trial_id for r in select_search_recipes(cfg, issue_id="")]
+        cf2 = SearchConfig(
+            nodes=cfg.nodes,
+            fault_models=cfg.fault_models,
+            magnitudes_ms=cfg.magnitudes_ms,
+            start_times_s=cfg.start_times_s,
+            durations_s=cfg.durations_s,
+            max_trials=3,
+            strategy=SHUFFLED_GRID,
+            strategy_seed=123,
+        )
+        sh = [r.trial_id for r in select_search_recipes(cf2, issue_id="")]
+        assert ex != sh
 
 
 class TestSearchRunner:

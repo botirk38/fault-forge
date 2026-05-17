@@ -9,7 +9,7 @@ from xinda import SlowFault as SdkSlowFault
 
 from faultforge.fault_provider.base import ProviderRunResult
 from faultforge.fault_provider.fault import SlowFault
-from faultforge.fault_provider.recipe import Recipe
+from faultforge.recipe import Recipe
 
 logger = logging.getLogger(__name__)
 

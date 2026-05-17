@@ -9,9 +9,9 @@ from pydantic import TypeAdapter
 from faultforge.fault_provider import (
     Fault,
     InProcessFault,
-    Recipe,
     SlowFault,
 )
+from faultforge.recipe import Recipe
 
 
 def test_discriminated_union_round_trip_through_json() -> None:

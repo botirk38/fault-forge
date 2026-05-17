@@ -7,10 +7,11 @@ from unittest.mock import patch
 import pytest
 from xinda import BenchmarkConfig, SlowFault, SystemConfig, TrialResult
 
-from faultforge.fault_provider import InProcessFault, Recipe
+from faultforge.fault_provider import InProcessFault
 from faultforge.fault_provider import SlowFault as RecipeSlowFault
 from faultforge.fault_provider.anduril import Anduril
 from faultforge.fault_provider.xinda import Xinda
+from faultforge.recipe import Recipe
 
 
 @pytest.fixture()

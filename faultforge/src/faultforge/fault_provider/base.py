@@ -8,7 +8,7 @@ from typing import Protocol
 
 from xinda import BenchmarkConfig, SystemConfig
 
-from faultforge.fault_provider.recipe import Recipe
+from faultforge.recipe import Recipe
 
 
 @dataclass(frozen=True, slots=True)
