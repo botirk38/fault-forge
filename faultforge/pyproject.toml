@@ -13,7 +13,6 @@ dependencies = [
     "pyyaml>=6.0.3",
     "rich>=15.0.0",
     "tqdm>=4.67.3",
-    "xinda",
 ]
 
 [build-system]
@@ -25,9 +24,6 @@ faultforge = "faultforge.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/faultforge"]
-
-[tool.uv.sources]
-xinda = { path = "../xinda", editable = true }
 
 [dependency-groups]
 dev = [
@@ -43,8 +39,16 @@ line-length = 100
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.extend-per-file-ignores]
+"src/faultforge/systems/*.py" = ["F403", "F405", "E501", "F841", "F541", "UP015", "UP031", "UP024", "E722", "E711", "B007"]
+"src/faultforge/configs/*.py" = ["ALL"]
+
 [tool.ty.environment]
 python-version = "3.12"
 
 [tool.ty.src]
 include = ["src/faultforge/**/*.py"]
+exclude = [
+    "src/faultforge/configs/**",
+    "src/faultforge/systems/**",
+]

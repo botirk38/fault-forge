@@ -1,4 +1,4 @@
-"""Smoke tests for the FaultForge CLI (provider calls patched)."""
+"""Smoke tests for the FaultForge CLI (runner calls patched)."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 from click.testing import CliRunner
 
 from faultforge.cli import main
-from faultforge.recipe import Recipe
-from faultforge.search import SearchConfig, SearchResult
+from faultforge.search import SearchConfig
+from faultforge.trial import Trial
 
 _ISSUE_ORACLE_YAML = """
 issue:
@@ -24,14 +24,18 @@ oracle:
 
 
 def test_search_command_runs_without_oracle() -> None:
-    recipe = Recipe(issue_id="x", trial_id="trial-a-nw-10ms", faults=[])
+    trial = Trial(
+        trial_id="trial-a-nw-10ms",
+        faults=[],
+        system=MagicMock(),
+        benchmark=MagicMock(),
+    )
     fake_results = [
-        SearchResult(
-            recipe=recipe,
+        MagicMock(
+            trial=trial,
             symptom_score=0.0,
             oracle_success=False,
             trial_index=0,
-            trials_run=0,
         )
     ]
 
@@ -40,11 +44,24 @@ def test_search_command_runs_without_oracle() -> None:
     fake_search = MagicMock()
     fake_search.run.return_value = fake_results
 
-    with patch("faultforge.cli.Xinda", return_value=MagicMock()):
+    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
         with patch("faultforge.cli.Searcher", return_value=fake_search):
-            result = runner.invoke(main, ["search", "--issue-id", "x", "--max-trials", "1"])
+            result = runner.invoke(
+                main,
+                [
+                    "search",
+                    "--issue-id",
+                    "x",
+                    "--max-trials",
+                    "1",
+                    "--system",
+                    "etcd",
+                    "--benchmark",
+                    "ycsb",
+                ],
+            )
 
-    assert result.exit_code == 0, result.stdout + result.stderr
+    assert result.exit_code == 0, result.output
     assert "trial-a-nw-10ms" in result.output
     fake_search.run.assert_called_once()
 
@@ -56,7 +73,7 @@ def test_search_pulls_issue_id_from_oracle_file(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     class _CaptureSearcher:
-        def __init__(self, _provider: object) -> None:
+        def __init__(self, _runner: object) -> None:
             pass
 
         def run(self, config: SearchConfig, issue_id: str = "") -> tuple[()]:
@@ -66,10 +83,21 @@ def test_search_pulls_issue_id_from_oracle_file(tmp_path: Path) -> None:
 
     runner = CliRunner()
 
-    with patch("faultforge.cli.Xinda", return_value=MagicMock()):
+    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
         with patch("faultforge.cli.Searcher", _CaptureSearcher):
-            result = runner.invoke(main, ["search", "--oracle", str(path)])
+            result = runner.invoke(
+                main,
+                [
+                    "search",
+                    "--oracle",
+                    str(path),
+                    "--system",
+                    "etcd",
+                    "--benchmark",
+                    "ycsb",
+                ],
+            )
 
-    assert result.exit_code == 0, result.stdout + result.stderr
+    assert result.exit_code == 0, result.output
     assert captured["issue_id"] == "CLI-TEST-1"
     assert captured["oracle"] is not None

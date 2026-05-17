@@ -8,11 +8,16 @@ import random
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
-from xinda import BenchmarkConfig, SystemConfig
-
-from faultforge.fault_provider import FaultProvider, ProviderRunResult, SlowFault, SlowFaultKind
 from faultforge.oracle import Oracle
-from faultforge.recipe import Recipe
+from faultforge.runner import TrialRunner
+from faultforge.trial import (
+    BenchmarkConfig,
+    SlowFault,
+    SlowFaultKind,
+    SystemConfig,
+    Trial,
+    TrialResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -21,8 +26,8 @@ class SearchStrategy(ABC):
     """Pluggable traversal of the Cartesian knob grid."""
 
     @abstractmethod
-    def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        """Produce recipes to evaluate, honoring ``max_trials`` and config timing fields."""
+    def select_trials(self, config: SearchConfig, *, issue_id: str = "") -> list[Trial]:
+        """Produce trials to evaluate, honoring ``max_trials``."""
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}()"
@@ -31,12 +36,12 @@ class SearchStrategy(ABC):
 class ExhaustiveGridStrategy(SearchStrategy):
     """Lexicographic ``itertools.product`` order; take first ``max_trials``."""
 
-    def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = config.full_grid_recipes(issue_id=issue_id)
+    def select_trials(self, config: SearchConfig, *, issue_id: str = "") -> list[Trial]:
+        full = config.full_grid_trials(issue_id=issue_id)
         cap = config.max_trials
         if len(full) > cap:
             logger.info(
-                "Search space %d recipes (exhaustive order), bounded to max_trials=%d",
+                "Search space %d trials (exhaustive order), bounded to max_trials=%d",
                 len(full),
                 cap,
             )
@@ -46,15 +51,15 @@ class ExhaustiveGridStrategy(SearchStrategy):
 class ShuffledGridStrategy(SearchStrategy):
     """Deterministic shuffle (``strategy_seed``), then first ``max_trials``."""
 
-    def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = config.full_grid_recipes(issue_id=issue_id)
+    def select_trials(self, config: SearchConfig, *, issue_id: str = "") -> list[Trial]:
+        full = config.full_grid_trials(issue_id=issue_id)
         cap = config.max_trials
         rng = random.Random(config.strategy_seed)
         dup = full.copy()
         rng.shuffle(dup)
         if len(dup) > cap:
             logger.info(
-                "Shuffled grid %d recipes, bounded to max_trials=%d",
+                "Shuffled grid %d trials, bounded to max_trials=%d",
                 len(dup),
                 cap,
             )
@@ -64,8 +69,8 @@ class ShuffledGridStrategy(SearchStrategy):
 class RandomSubsetGridStrategy(SearchStrategy):
     """Uniform random sample without replacement; size ``min(max_trials, grid_size)``."""
 
-    def select_recipes(self, config: SearchConfig, *, issue_id: str = "") -> list[Recipe]:
-        full = config.full_grid_recipes(issue_id=issue_id)
+    def select_trials(self, config: SearchConfig, *, issue_id: str = "") -> list[Trial]:
+        full = config.full_grid_trials(issue_id=issue_id)
         rng = random.Random(config.strategy_seed)
         k = min(config.max_trials, len(full))
         return rng.sample(full, k=k)
@@ -78,56 +83,30 @@ RANDOM_SUBSET_GRID = RandomSubsetGridStrategy()
 
 @dataclass
 class SearchConfig:
-    """Cartesian knob grid plus how trials run (Xinda ``SlowFault`` recipes)."""
+    """Cartesian knob grid plus how trials run."""
 
+    system: SystemConfig
+    benchmark: BenchmarkConfig
     nodes: list[str] = field(default_factory=lambda: ["leader", "follower"])
     fault_models: list[SlowFaultKind] = field(default_factory=lambda: ["nw", "fs"])
     magnitudes_ms: list[int] = field(default_factory=lambda: [10, 50, 100, 250, 500])
-    start_times_s: list[float] = field(default_factory=lambda: [0.0, 10.0, 30.0])
-    durations_s: list[float] = field(default_factory=lambda: [30.0, 60.0])
+    start_times_s: list[int] = field(default_factory=lambda: [0, 10, 30])
+    durations_s: list[int] = field(default_factory=lambda: [30, 60])
+    max_faults_per_trial: int = 1
     max_trials: int = 100
     strategy: SearchStrategy = EXHAUSTIVE_GRID
     strategy_seed: int | None = None
     oracle: Oracle | None = None
-    system_config: SystemConfig | None = None
-    benchmark_config: BenchmarkConfig | None = None
 
-    def _trial_recipe(
-        self,
-        issue_id: str,
-        *,
-        node: str,
-        fault_model: SlowFaultKind,
-        delay_ms: int,
-        start_s: float,
-        duration_s: float,
-    ) -> Recipe:
-        return Recipe(
-            issue_id=issue_id,
-            trial_id=f"trial-{node}-{fault_model}-{delay_ms}ms",
-            faults=[
-                SlowFault(
-                    id="fault-1",
-                    fault_type=fault_model,
-                    location=node,
-                    duration_s=int(duration_s),
-                    severity=f"slow-{delay_ms}ms",
-                    start_s=int(start_s),
-                    if_restart=False,
-                ),
-            ],
-        )
-
-    def full_grid_recipes(self, *, issue_id: str = "") -> list[Recipe]:
-        """Stable Cartesian enumeration (no ``max_trials`` cap)."""
+    def _single_fault_candidates(self) -> list[SlowFault]:
         return [
-            self._trial_recipe(
-                issue_id,
-                node=node,
-                fault_model=fault_model,
-                delay_ms=delay_ms,
-                start_s=start_s,
-                duration_s=duration_s,
+            SlowFault(
+                fault_type=fault_model,
+                location=node,
+                duration_s=int(duration_s),
+                severity=f"slow-{delay_ms}ms",
+                start_s=int(start_s),
+                if_restart=False,
             )
             for node, fault_model, delay_ms, start_s, duration_s in itertools.product(
                 self.nodes,
@@ -138,56 +117,68 @@ class SearchConfig:
             )
         ]
 
-    def recipes(self, *, issue_id: str = "") -> list[Recipe]:
-        """Full grid (alias for ``full_grid_recipes``; ignores strategy / ``max_trials``)."""
-        return self.full_grid_recipes(issue_id=issue_id)
+    def _trial_from_faults(
+        self,
+        issue_id: str,
+        faults: list[SlowFault],
+    ) -> Trial:
+        labels = "-".join(f"{f.fault_type}-{f.location}-{f.severity}" for f in faults)
+        return Trial(
+            trial_id=f"trial-{labels}",
+            issue_id=issue_id,
+            system=self.system,
+            benchmark=self.benchmark,
+            faults=faults,
+        )
 
-    def bounded_recipes(self, *, issue_id: str = "") -> list[Recipe]:
-        """Grid slice chosen by ``self.strategy`` + ``max_trials``."""
-        return self.strategy.select_recipes(self, issue_id=issue_id)
+    def full_grid_trials(self, *, issue_id: str = "") -> list[Trial]:
+        candidates = self._single_fault_candidates()
+        max_k = self.max_faults_per_trial
+        faults_combos: list[list[SlowFault]] = []
+        for k in range(1, max_k + 1):
+            for combo in itertools.combinations(candidates, k):
+                faults_combos.append(list(combo))
+        return [self._trial_from_faults(issue_id, faults) for faults in faults_combos]
+
+    def bounded_trials(self, *, issue_id: str = "") -> list[Trial]:
+        return self.strategy.select_trials(self, issue_id=issue_id)
 
 
 @dataclass
 class SearchResult:
-    recipe: Recipe
+    trial: Trial
+    trial_result: TrialResult | None
     symptom_score: float
     oracle_success: bool
     trial_index: int
-    trials_run: int = 0
 
 
 class Searcher:
-    def __init__(self, provider: FaultProvider) -> None:
-        self._provider = provider
+    def __init__(self, runner: TrialRunner) -> None:
+        self._runner = runner
 
     def run(self, config: SearchConfig, issue_id: str = "") -> list[SearchResult]:
-        recipes_slice = config.bounded_recipes(issue_id=issue_id)
-
-        results: list[SearchResult] = []
-        sy, bm = config.system_config, config.benchmark_config
+        trials = config.bounded_trials(issue_id=issue_id)
         oracle = config.oracle
+        results: list[SearchResult] = []
 
-        for trial_index, recipe in enumerate(recipes_slice):
+        for trial_index, trial in enumerate(trials):
+            trial_result = self._runner.run(trial)
             symptom_score = 0.0
             oracle_success = False
-            trials_run = 0
 
-            if sy is not None and bm is not None:
-                outcomes: tuple[ProviderRunResult, ...] = tuple(self._provider.run(recipe, sy, bm))
-                trials_run = len(outcomes)
-                log_path = next((o.log_path for o in outcomes if o.log_path is not None), None)
-                if oracle is not None and log_path is not None:
-                    verdict = oracle.evaluate(log_path=log_path)
-                    symptom_score = verdict.symptom_score
-                    oracle_success = verdict.success
+            if oracle is not None and trial_result.log_path is not None:
+                verdict = oracle.evaluate(log_path=trial_result.log_path)
+                symptom_score = verdict.symptom_score
+                oracle_success = verdict.success
 
             results.append(
                 SearchResult(
-                    recipe=recipe,
+                    trial=trial,
+                    trial_result=trial_result,
                     symptom_score=symptom_score,
                     oracle_success=oracle_success,
                     trial_index=trial_index,
-                    trials_run=trials_run,
                 )
             )
 

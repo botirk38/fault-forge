@@ -1,7 +1,0 @@
-containers:
-  dummy:
-    image: "luca3m/sleep"
-    container_name: "dummy"
-
-network:
-  slow: 800ms
