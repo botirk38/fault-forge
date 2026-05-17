@@ -7,8 +7,9 @@ from __future__ import annotations
 
 import logging
 
-from faultforge.recipe import Fault, Recipe
 from xinda import BenchmarkConfig, SlowFault, SystemConfig, Trial, TrialResult, XindaClient
+
+from faultforge.recipe import Fault, Recipe
 
 logger = logging.getLogger(__name__)
 

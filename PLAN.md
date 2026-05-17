@@ -175,15 +175,19 @@ Transform fault reproduction from manual/configured experiments into symptom-gui
 ## File Layout
 
 ```text
-faultforge/
-  __init__.py
-  recipe.py
-  xinda_runner.py     # future
-  oracle.py           # future
-  search.py           # future
-  minimizer.py        # future
+faultforge/             # FaultForge uv project
+  pyproject.toml
+  uv.lock
+  src/faultforge/
+    __init__.py
+    recipe.py
+    xinda_runner.py
+    oracle.py
+    search.py
+    minimizer.py        # future
+    anduril_runner.py   # future
 
-xinda/                # vendored Xinda source + SDK
+xinda/                  # vendored Xinda source + SDK
   src/xinda/
     __init__.py
     client.py
@@ -191,7 +195,7 @@ xinda/                # vendored Xinda source + SDK
     configs/
     systems/
 
-anduril/              # vendored Anduril source (Java 25)
+anduril/                # vendored Anduril source (Java 25)
   tool/
   evaluation/
   systems/
@@ -199,8 +203,7 @@ anduril/              # vendored Anduril source (Java 25)
 .github/workflows/ci.yml
 PLAN.md
 README.md
-pyproject.toml
-uv.lock
+.python-version
 ```
 
 ## What We Keep From Prior Systems

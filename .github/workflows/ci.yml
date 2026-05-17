@@ -22,12 +22,15 @@ jobs:
           python-version: "3.12"
 
       - run: uv sync
+        working-directory: faultforge
 
       - name: Ruff check
-        run: uv run ruff check faultforge/
+        run: uv run ruff check src/faultforge/
+        working-directory: faultforge
 
       - name: Ruff format check
-        run: uv run ruff format --check faultforge/
+        run: uv run ruff format --check src/faultforge/
+        working-directory: faultforge
 
   faultforge-typecheck:
     name: "FaultForge: Type Check"
@@ -40,9 +43,11 @@ jobs:
           python-version: "3.12"
 
       - run: uv sync
+        working-directory: faultforge
 
       - name: ty check
         run: uv run ty check
+        working-directory: faultforge
 
   faultforge-test:
     name: "FaultForge: Test"
@@ -55,9 +60,11 @@ jobs:
           python-version: "3.12"
 
       - run: uv sync
+        working-directory: faultforge
 
       - name: Run tests
-        run: uv run pytest faultforge/ -v || test $? -eq 5
+        run: uv run pytest tests/ -v || test $? -eq 5
+        working-directory: faultforge
 
   # ── Xinda SDK (environmental fault provider) ──────────────────────
   xinda-lint:
@@ -70,7 +77,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: uv sync
+      - run: uv sync --project xinda
 
       - name: Ruff check
         run: uv run --project xinda ruff check xinda/
@@ -88,7 +95,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: uv sync
+      - run: uv sync --project xinda
 
       - name: ty check
         run: uv run --project xinda --directory xinda ty check
@@ -103,7 +110,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: uv sync
+      - run: uv sync --project xinda
 
       - name: Run tests
         run: uv run --project xinda pytest xinda/ --ignore=xinda/examples --ignore=xinda/data-analysis -v || test $? -eq 5

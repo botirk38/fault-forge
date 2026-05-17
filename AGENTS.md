@@ -11,41 +11,41 @@ FaultForge is a symptom-guided fault reproduction orchestrator for distributed s
 ### Essential Commands
 
 ```bash
-# Install all dependencies (root + xinda local package)
+cd faultforge
+
 uv sync
 
 # Run FaultForge CLI (when implemented)
 uv run faultforge --help
 
 # Lint
-uv run ruff check faultforge/
-uv run ruff format --check faultforge/
+uv run ruff check src/faultforge/
+uv run ruff format --check src/faultforge/
 
 # Type check
 uv run ty check
 
 # Fix lint issues
-uv run ruff check --fix faultforge/
+uv run ruff check --fix src/faultforge/
 ```
 
 ## Non-Negotiable Rules
 
 1. **ruff and ty checks MUST pass before any commit.** No exceptions.
-2. Run `uv run ruff check faultforge/` and `uv run ty check` before committing.
+2. Run FaultForge lint and `ty check` inside `faultforge/` before committing.
 3. If checks fail, fix the issues. Do not add blanket ignores.
-4. Per-file ignores in `pyproject.toml` are only for vendored code (`xinda/`, `anduril/`).
+4. Legacy per-file ignores in `xinda/pyproject.toml` follow `xinda/AGENTS.md` rules.
 
 ## Project Structure
 
 ```
 fault-forge/
-├── pyproject.toml          # Root FaultForge project config
-├── uv.lock                 # Lockfile (commit this)
 ├── .python-version         # Python version pin
 ├── .github/workflows/ci.yml
-├── faultforge/             # Core orchestrator package
-│   ├── __init__.py
-│   └── recipe.py           # Multi-fault recipe schema (Pydantic)
+├── faultforge/             # FaultForge uv project (`faultforge-sdk`)
+│   ├── pyproject.toml      # FaultForge deps, ruff, ty
+│   ├── uv.lock
+│   └── src/faultforge/     # orchestrator Python package (oracle, search, recipe, runners)
 ├── xinda/                  # Local uv package (environmental fault provider)
 │   ├── pyproject.toml
 │   ├── AGENTS.md           # Xinda-specific dev guide
@@ -67,11 +67,9 @@ fault-forge/
 
 ## Development Workflow
 
-1. Make changes to `faultforge/`
-2. Run `uv run ruff check faultforge/`
-3. Run `uv run ty check`
-4. Fix any failures
-5. Commit
+1. Change files under `faultforge/src/faultforge/`.
+2. From `faultforge/`, run ruff + `ty check`.
+3. Fix any failures, then commit.
 
 ## Working on Xinda
 
@@ -85,7 +83,7 @@ uv run --project xinda --directory xinda ty check
 ## Adding Dependencies
 
 ```bash
-# Root FaultForge
+cd faultforge
 uv add <package>
 uv add --dev <dev-package>
 
@@ -103,6 +101,6 @@ uv add --project xinda <package>
 ## Key Constraints
 
 - Python 3.12+
-- Xinda is a local editable dependency: `[tool.uv.sources] xinda = { path = "xinda", editable = true }`
+- Xinda is declared in FaultForge via `[tool.uv.sources] xinda = { path = "../xinda", editable = true }` inside `faultforge/pyproject.toml`
 - No backward compatibility baggage — refactor aggressively when it improves clarity
 - Keep code simple and readable. Best practices over clever architecture.

@@ -5,7 +5,11 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from faultforge.oracle import Oracle, OracleResult
-from faultforge.search import SearchConfig, SearchSpace, _build_recipe, search
+from faultforge.search import (
+    ExhaustiveSearchStrategy,
+    SearchConfig,
+    SearchSpace,
+)
 
 # ---------------------------------------------------------------------------
 # SearchSpace
@@ -63,7 +67,9 @@ class TestBuildRecipe:
             "start_s": 10.0,
             "duration_s": 60.0,
         }
-        recipe = _build_recipe(params, issue_id="ZK-001", trial_id="t1")
+        recipe = ExhaustiveSearchStrategy()._build_recipe(
+            params, issue_id="ZK-001", trial_id="t1"
+        )
 
         assert recipe.issue_id == "ZK-001"
         assert recipe.trial_id == "t1"
@@ -85,7 +91,7 @@ class TestBuildRecipe:
             "start_s": 0.0,
             "duration_s": 30.0,
         }
-        recipe = _build_recipe(params)
+        recipe = ExhaustiveSearchStrategy()._build_recipe(params)
         assert "follower" in recipe.trial_id
         assert "disk_delay" in recipe.trial_id
         assert "250" in recipe.trial_id
@@ -106,8 +112,9 @@ class TestSearch:
             durations_s=[30.0],
         )
         config = SearchConfig(max_trials=10)
+        strategy = ExhaustiveSearchStrategy()
 
-        results = search(space, config, issue_id="TEST-1")
+        results = strategy.run(space, config, issue_id="TEST-1")
 
         assert len(results) == 1
         assert results[0].recipe.issue_id == "TEST-1"
@@ -123,8 +130,9 @@ class TestSearch:
         )
         # 2 * 2 * 2 * 1 * 1 = 8 combos, limit to 3
         config = SearchConfig(max_trials=3)
+        strategy = ExhaustiveSearchStrategy()
 
-        results = search(space, config)
+        results = strategy.run(space, config)
 
         assert len(results) == 3
 
@@ -168,9 +176,10 @@ class TestSearch:
         config.oracle = mock_oracle
         config.system_config = MagicMock()
         config.benchmark_config = MagicMock()
+        strategy = ExhaustiveSearchStrategy()
 
         with patch("faultforge.search.run_recipe", side_effect=mock_run_recipe):
-            results = search(space, config)
+            results = strategy.run(space, config)
 
         # Results should be sorted by score descending
         assert results[0].symptom_score >= results[1].symptom_score
@@ -186,8 +195,9 @@ class TestSearch:
             durations_s=[30.0],
         )
         config = SearchConfig(max_trials=5)
+        strategy = ExhaustiveSearchStrategy()
 
-        results = search(space, config)
+        results = strategy.run(space, config)
 
         assert len(results) == 1
         assert results[0].details["trials_run"] == 0
