@@ -12,9 +12,9 @@ CI runs on every push and pull request to `main` via `.github/workflows/ci.yml`.
 
 | Job | What it checks | Command |
 |---|---|---|
-| **FaultForge: Lint** | Ruff lint + format | `uv run ruff check faultforge/` and `uv run ruff format --check faultforge/` |
-| **FaultForge: Type Check** | ty static type checker | `uv run ty check` |
-| **FaultForge: Test** | pytest (exit 5 = no tests is OK) | `uv run pytest faultforge/ -v` |
+| **FaultForge: Lint** | Ruff lint + format | Run with `working-directory: faultforge`: `uv run ruff check src/faultforge/` and `uv run ruff format --check src/faultforge/` |
+| **FaultForge: Type Check** | ty static type checker | `working-directory: faultforge`: `uv run ty check` |
+| **FaultForge: Test** | pytest (exit 5 = no tests is OK) | `working-directory: faultforge`: `uv run pytest tests/ -v` |
 
 ### Xinda SDK (environmental fault provider)
 
@@ -39,20 +39,25 @@ Run these before pushing to avoid CI failures:
 ### FaultForge
 
 ```bash
+cd faultforge
+uv sync
+
 # Lint
-uv run ruff check faultforge/
-uv run ruff format --check faultforge/
+uv run ruff check src/faultforge/
+uv run ruff format --check src/faultforge/
 
 # Type check
 uv run ty check
 
 # Tests
-uv run pytest faultforge/ -v
+uv run pytest tests/ -v
 ```
 
 ### Xinda
 
 ```bash
+uv sync --project xinda
+
 # Lint
 uv run --project xinda ruff check xinda/
 uv run --project xinda ruff format --check xinda/src/
@@ -78,8 +83,9 @@ mvn install -DskipTests -B -q
 
 ```bash
 # Fix FaultForge lint issues
-uv run ruff check --fix faultforge/
-uv run ruff format faultforge/
+cd faultforge
+uv run ruff check --fix src/faultforge/
+uv run ruff format src/faultforge/
 
 # Fix Xinda lint issues
 uv run --project xinda ruff check --fix xinda/src/
@@ -99,5 +105,5 @@ uv run --project xinda ruff format xinda/src/
 
 - The `|| test $? -eq 5` suffix on pytest steps allows the job to pass when no tests are collected (exit code 5). This is intentional — FaultForge and Xinda test suites are still being built out.
 - Ruff lint and format are separate steps but both must pass.
-- ty only checks files under `faultforge/**/*.py` (root) and `src/xinda/**/*.py` (xinda). Legacy code under `xinda/configs/`, `xinda/systems/`, `xinda/examples/`, and `xinda/data-analysis/` is excluded.
+- ty checks `faultforge/src/faultforge/**/*.py` (FaultForge project) and `src/xinda/**/*.py` (Xinda project). Legacy code under `xinda/configs/`, `xinda/systems/`, `xinda/examples/`, and `xinda/data-analysis/` is excluded from type checking per Xinda config.
 - The Anduril build skips tests because they require a running target system with the TraceAgent attached.
