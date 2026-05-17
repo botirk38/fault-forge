@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -101,3 +102,108 @@ def test_search_pulls_issue_id_from_oracle_file(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     assert captured["issue_id"] == "CLI-TEST-1"
     assert captured["oracle"] is not None
+
+
+def test_search_dry_run_plans_without_executing() -> None:
+    runner = CliRunner()
+
+    with patch("faultforge.cli.Searcher") as mock_searcher_cls:
+        result = runner.invoke(
+            main,
+            [
+                "search",
+                "--dry-run",
+                "--max-trials",
+                "2",
+                "--system",
+                "etcd",
+                "--benchmark",
+                "ycsb",
+                "--nodes",
+                "leader",
+                "--magnitudes",
+                "10",
+            ],
+        )
+
+    mock_searcher_cls.assert_not_called()
+    assert result.exit_code == 0, result.output
+    assert "trial(s) planned" in result.output
+
+
+def test_search_dry_run_json_output() -> None:
+    runner = CliRunner()
+
+    result = runner.invoke(
+        main,
+        [
+            "search",
+            "--dry-run",
+            "--json",
+            "--max-trials",
+            "1",
+            "--system",
+            "etcd",
+            "--benchmark",
+            "ycsb",
+            "--nodes",
+            "leader",
+            "--magnitudes",
+            "10",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.strip().split("\n") if line.startswith("{")]
+    for line in lines:
+        parsed = json.loads(line)
+        assert "trial_id" in parsed
+        assert "faults" in parsed
+
+
+def test_search_custom_fault_knobs() -> None:
+    captured: dict[str, object] = {}
+
+    class _CaptureSearcher:
+        def __init__(self, _runner: object) -> None:
+            pass
+
+        def run(self, config: SearchConfig, issue_id: str = "") -> tuple[()]:
+            captured["config"] = config
+            return ()
+
+    runner = CliRunner()
+
+    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
+        with patch("faultforge.cli.Searcher", _CaptureSearcher):
+            result = runner.invoke(
+                main,
+                [
+                    "search",
+                    "--nodes",
+                    "node1",
+                    "--nodes",
+                    "node2",
+                    "--fault-models",
+                    "nw",
+                    "--magnitudes",
+                    "25",
+                    "--magnitudes",
+                    "50",
+                    "--start-times",
+                    "5",
+                    "--durations",
+                    "45",
+                    "--max-faults-per-trial",
+                    "2",
+                ],
+            )
+
+    assert result.exit_code == 0, result.output
+    cfg = captured["config"]
+    assert cfg.nodes == ["node1", "node2"]
+    assert cfg.fault_models == ["nw"]
+    assert cfg.magnitudes_ms == [25, 50]
+    assert cfg.start_times_s == [5]
+    assert cfg.durations_s == [45]
+    assert cfg.max_faults_per_trial == 2
