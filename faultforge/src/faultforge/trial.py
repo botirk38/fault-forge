@@ -74,9 +74,7 @@ class SlowFault:
         )
 
     def get_info(self) -> str:
-        spec = json.dumps(self.__dict__, indent=4)
-        print(spec)
-        return spec
+        return json.dumps(self.__dict__, indent=4)
 
 
 @dataclass
@@ -282,8 +280,8 @@ class TrialPaths:
     log_root_dir: str = ""
     install_root: str = ""
     tooling_root: str = ""
-    xinda_software_dir: str = ""
-    xinda_tools_dir: str = ""
+    software_dir: str = ""
+    tools_dir: str = ""
     charybdefs_mount_dir: str = "/var/lib/docker/cfs_mount/tmp"
 
     @classmethod
@@ -293,8 +291,8 @@ class TrialPaths:
             log_root_dir=str(home / "workdir" / "data" / data_dir),
             install_root=str(home / "workdir" / "xinda-software"),
             tooling_root=str(home / "workdir" / "xinda" / "tools"),
-            xinda_software_dir=str(home / "workdir" / "xinda-software"),
-            xinda_tools_dir=str(home / "workdir" / "xinda" / "tools"),
+            software_dir=str(home / "workdir" / "xinda-software"),
+            tools_dir=str(home / "workdir" / "xinda" / "tools"),
         )
 
 
@@ -313,9 +311,6 @@ class Trial:
     paths: TrialPaths = field(default_factory=TrialPaths.defaults)
     iteration: int = 1
     version: str | None = None
-
-    def data_dir(self) -> str:
-        return self.system.data_dir
 
 
 @dataclass

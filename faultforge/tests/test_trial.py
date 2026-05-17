@@ -165,7 +165,7 @@ class TestTrial:
         sy = SystemConfig(name="etcd", data_dir="test")
         bm = BenchmarkConfig.ycsb()
         t = Trial(trial_id="t3", system=sy, benchmark=bm, faults=[])
-        assert t.data_dir() == "test"
+        assert t.system.data_dir == "test"
 
 
 class TestTrialResult:

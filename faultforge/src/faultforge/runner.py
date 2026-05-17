@@ -16,9 +16,20 @@ logger = logging.getLogger(__name__)
 
 
 class TrialRunner:
-    """Execute a Trial against a real distributed system."""
+    """Execute a Trial against a real distributed system.
+
+    Single entry point: ``run(trial) -> TrialResult``.
+    Handles system lifecycle, fault injection, and benchmark execution
+    through the system implementation.
+    """
 
     def run(self, trial: Trial) -> TrialResult:
+        """Execute a trial and return the result.
+
+        On success, returns with the system log path.
+        On failure, captures the traceback to stderr.log and returns
+        the error message.
+        """
         self._validate(trial)
         trial.paths = trial.paths or TrialPaths.defaults(trial.system.data_dir)
 
@@ -30,7 +41,9 @@ class TrialRunner:
                 trial=trial,
                 log_path=system.log.info,
             )
-        except (KeyboardInterrupt, Exception) as e:
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:
             error_msg = traceback.format_exc()
             log_path = str(Path.cwd() / "stderr.log")
             with open(log_path, "a") as f:
@@ -47,6 +60,7 @@ class TrialRunner:
             )
 
     def _validate(self, trial: Trial) -> None:
+        """Validate trial configuration before execution."""
         for fault in trial.faults:
             if fault.fault_type not in ("nw", "fs", "none"):
                 raise ValueError(f"Unknown fault type: {fault.fault_type}")
