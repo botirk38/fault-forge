@@ -1,0 +1,12 @@
+issue:
+  id: "ETCD-SMOKE-1"
+  system: "etcd"
+  title: "Smoke test — any error under network delay"
+  source: "synthetic"
+  category: "availability"
+oracle:
+  type: "log-symptom"
+  verdict: "symptom_present"
+  node: "leader"
+  pattern:
+    log_level: "ERROR"

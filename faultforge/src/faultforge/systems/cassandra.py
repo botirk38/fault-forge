@@ -9,7 +9,6 @@ class Cassandra(TestSystem):
             self.docker_up()
             self._docker_status_checker()
             time.sleep(10)
-            self.blockade_up()
         elif self._primary_fault().fault_type == "fs":
             self.charybdefs_up()
             self.docker_up()
@@ -34,9 +33,7 @@ class Cassandra(TestSystem):
         self._wait_till_benchmark_ends()
         self._post_process()
         self.docker_down()
-        if self._primary_fault().fault_type == "nw":
-            self.blockade_down()
-        elif self._primary_fault().fault_type == "fs":
+        if self._primary_fault().fault_type == "fs":
             self.charybdefs_down()
         self.info("THE END")
 
