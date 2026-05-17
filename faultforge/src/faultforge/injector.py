@@ -11,20 +11,22 @@ logger = logging.getLogger(__name__)
 class NetworkFaultInjector:
     """Inject network faults into Docker containers using tc netem.
 
-    Replaces Blockade. Uses ``nsenter`` to run ``tc`` in the container's
-    network namespace from the host, avoiding the need for ``tc`` inside
-    the container image.
+    Replaces Blockade. Installs ``iproute2`` (provides ``tc``) in the
+    target container if not present, then runs ``tc`` via ``docker exec``.
     """
 
     def __init__(self, docker_bin: str = "docker") -> None:
         self._docker = docker_bin
+        self._tc_installed: set[str] = set()
 
     def inject_delay(self, container: str, delay_ms: int) -> None:
         """Add a fixed delay to all egress traffic on eth0."""
+        self._ensure_tc(container)
         self._run_tc(container, f"qdisc add dev eth0 root netem delay {delay_ms}ms")
 
     def inject_loss(self, container: str, loss_pct: float) -> None:
         """Add random packet loss to all egress traffic on eth0."""
+        self._ensure_tc(container)
         self._run_tc(container, f"qdisc add dev eth0 root netem loss {loss_pct}%")
 
     def clear(self, container: str) -> None:
@@ -34,18 +36,39 @@ class NetworkFaultInjector:
         except subprocess.CalledProcessError:
             pass
 
-    def _get_pid(self, container: str) -> str:
+    def _ensure_tc(self, container: str) -> None:
+        """Install tc in the container if not already present."""
+        if container in self._tc_installed:
+            return
         result = subprocess.run(
-            [self._docker, "inspect", "-f", "{{.State.Pid}}", container],
+            [self._docker, "exec", container, "sh", "-c", "which tc"],
             capture_output=True,
-            text=True,
-            check=True,
         )
-        return result.stdout.strip()
+        if result.returncode == 0:
+            self._tc_installed.add(container)
+            return
+        logger.info("Installing iproute2 (tc) in container %s", container)
+        # Try apt-get first (Debian/Ubuntu), then apk (Alpine)
+        for cmd in [
+            ["apt-get", "update", "-qq", "&&", "apt-get", "install", "-y", "-qq", "iproute2"],
+            ["apk", "add", "--no-cache", "iproute2"],
+        ]:
+            result = subprocess.run(
+                [self._docker, "exec", container, "sh", "-c", " ".join(cmd)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if result.returncode == 0:
+                self._tc_installed.add(container)
+                return
+        raise RuntimeError(
+            f"Failed to install tc in container {container}. "
+            f"Tried apt-get and apk. stderr: {result.stderr}"
+        )
 
     def _run_tc(self, container: str, tc_args: str) -> None:
-        pid = self._get_pid(container)
-        cmd = ["nsenter", "-t", pid, "-n", "tc"] + tc_args.split()
+        cmd = [self._docker, "exec", container, "tc"] + tc_args.split()
         logger.info("Running: %s", " ".join(cmd))
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 

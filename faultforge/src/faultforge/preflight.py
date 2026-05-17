@@ -45,7 +45,6 @@ class Preflight:
         self._check_docker_daemon(report)
         self._check_docker_compose(report)
         self._check_compose_root(report)
-        self._check_nsenter(report)
         return report
 
     def _check_docker_cli(self, report: PreflightReport) -> None:
@@ -86,15 +85,8 @@ class Preflight:
         if p.is_dir():
             report.add("compose root", True, f"{self._runtime.compose_root}")
         else:
-            report.add("compose root", False, f"{self._runtime.compose_root} does not exist")
-
-    def _check_nsenter(self, report: PreflightReport) -> None:
-        path = shutil.which("nsenter")
-        if path:
-            report.add("nsenter", True, f"found at {path}")
-        else:
             report.add(
-                "nsenter",
+                "compose root",
                 False,
-                "nsenter not found; network faults require nsenter for host-side tc injection",
+                f"{self._runtime.compose_root} does not exist",
             )
