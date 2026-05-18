@@ -3,7 +3,8 @@ runs:
   - name: nw-delay-100ms
     issue_id: ""
     system: hadoop
-    benchmark: terasort
+    system_version: "3.3.6"
+    benchmark: mrbench
     oracle: oracles/hadoop-smoke.yaml
     strategy: exhaustive
     max_trials: 1

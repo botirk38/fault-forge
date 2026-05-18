@@ -50,9 +50,12 @@ class Mapred(TestSystem):
         self.info("THE END")
 
     def _docker_status_checker(self):
-        cmd = [
-            "docker exec -it namenode hdfs dfsadmin -report | grep 'Live datanodes ' |grep -oP '\(.*\)' | tr -d '()'"
-        ]
+        # Wait for namenode to be ready first
+        time.sleep(30)
+        cmd = (
+            "docker exec namenode hdfs dfsadmin -report | grep 'Live datanodes ' |grep -oP '\\(.*\\)' | tr -d '()'"
+        )
+        counter = 0
         while True:
             num_live_datanode = subprocess.run(
                 cmd, shell=True, stdout=subprocess.PIPE
@@ -61,19 +64,12 @@ class Mapred(TestSystem):
                 self.info("We have 3 live datanodes now.")
                 break
             else:
-                print("Still waiting for cluster to set up. Sleep 10s")
+                counter += 10
+                print(f"Still waiting for cluster to set up. Sleep 10s ({counter}s)")
                 time.sleep(10)
-        cmd = ["docker ps -a | grep '(healthy)' | wc -l"]
-        while True:
-            num_healthy_node = subprocess.run(
-                cmd, shell=True, stdout=subprocess.PIPE
-            ).stdout.strip()
-            if num_healthy_node == b"9":
-                self.info("Hadoop cluster properly set up.")
-                break
-            else:
-                print("Still waiting for cluster to set up. Sleep 10s")
-                time.sleep(10)
+            if counter > 300:
+                self.info("FATAL: Hadoop cluster failed to set up")
+                exit(1)
         self.docker_get_status()
 
     def _copy_file_to_container(self):
@@ -234,7 +230,7 @@ class Mapred(TestSystem):
         _ = subprocess.run(cleanup_cmd, shell=True)
 
     def _jacoco_export_hadoop_opts(self):
-        export_cmd = f"docker exec -it {self.jacoco_loc} sh -c 'echo export HADOOP_OPTS=\"-javaagent:/jacoco/lib/jacocoagent.jar=destfile=/jacoco/data/out.exec,classdumpdir=/jacoco/data/dump -Djacoco-agent.attach=true \$HADOOP_OPTS\" >> /etc/hadoop/hadoop-env.sh'"
+        export_cmd = f"docker exec {self.jacoco_loc} sh -c 'echo export HADOOP_OPTS=\"-javaagent:/jacoco/lib/jacocoagent.jar=destfile=/jacoco/data/out.exec,classdumpdir=/jacoco/data/dump -Djacoco-agent.attach=true \\$HADOOP_OPTS\" >> /etc/hadoop/hadoop-env.sh'"
         _ = subprocess.run(export_cmd, shell=True)
         tail_cmd = f"docker exec {self.jacoco_loc} tail /etc/hadoop/hadoop-env.sh -n 1"
         p = subprocess.run(tail_cmd, shell=True, stdout=subprocess.PIPE)
@@ -263,7 +259,7 @@ class Mapred(TestSystem):
                 "/opt/hadoop-3.3.6/share/hadoop/client/hadoop-client-runtime-3.3.6.jar",
             ]
             for file in file_paths:
-                mv_cmd = f"docker exec -it {self.jacoco_loc} mv {file} /"
+                mv_cmd = f"docker exec {self.jacoco_loc} mv {file} /"
                 _ = subprocess.run(mv_cmd, shell=True)
             self.info(
                 f"version:{self.version}: Removed files with redundant classes on {self.jacoco_loc} for generating jacoco reports."
@@ -275,13 +271,13 @@ class Mapred(TestSystem):
                 "/opt/hadoop-3.0.0/share/hadoop/yarn/lib/jasper-runtime-5.5.23.jar",
             ]
             for file in file_paths:
-                mv_cmd = f"docker exec -it {self.jacoco_loc} mv {file} /"
+                mv_cmd = f"docker exec {self.jacoco_loc} mv {file} /"
                 _ = subprocess.run(mv_cmd, shell=True)
             self.info(
                 f"version:{self.version}: Removed files with redundant classes on {self.jacoco_loc} for generating jacoco reports."
             )
         for module in ["client", "common", "hdfs", "mapreduce", "tools", "yarn"]:
-            cmd = f"docker exec -it {self.jacoco_loc} java -jar /jacoco/lib/jacococli.jar report /jacoco/data/out.exec --classfiles /opt/hadoop-{self.version}/share/hadoop/{module} --html /jacoco/reports/{module}"
+            cmd = f"docker exec {self.jacoco_loc} java -jar /jacoco/lib/jacococli.jar report /jacoco/data/out.exec --classfiles /opt/hadoop-{self.version}/share/hadoop/{module} --html /jacoco/reports/{module}"
             _ = subprocess.run(cmd, shell=True)
             self.info(f"Module:{module}: jacoco reports generated", rela=self.start_time)
 

@@ -191,6 +191,7 @@ class SearchConfig:
             system=self.system,
             benchmark=self.benchmark,
             faults=faults,
+            version=self.system.version,
         )
 
     def full_grid_trials(self, *, issue_id: str = "") -> list[Trial]:

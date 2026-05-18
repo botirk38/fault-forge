@@ -38,7 +38,7 @@ class Cassandra(TestSystem):
         self.info("THE END")
 
     def _docker_status_checker(self):
-        cmd = ["docker exec -it cas1 nodetool status | grep 'UN ' | awk '{print $2}' | wc -l"]
+        cmd = "docker exec cas1 nodetool status | grep 'UN ' | awk '{print $2}' | wc -l"
         counter = 0
         while True:
             num_normal_node = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE).stdout.strip()
@@ -59,7 +59,7 @@ class Cassandra(TestSystem):
     def _init_cql(self):
         cmd = ["docker", "cp", self.tool.cas_init_cql, f"cas1:/opt/cassandra/bin/init.cql"]
         p = subprocess.run(cmd)
-        cmd = "docker exec -it cas1 ./opt/cassandra/bin/cqlsh -f /opt/cassandra/bin/init.cql"
+        cmd = "docker exec cas1 ./opt/cassandra/bin/cqlsh -f /opt/cassandra/bin/init.cql"
         p = subprocess.run(cmd, shell=True)
         self.info("KEYSPACE:ycsb and TABLE:usertable initiated")
 

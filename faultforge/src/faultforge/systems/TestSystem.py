@@ -217,12 +217,15 @@ class TestSystem:
                 f"Exception: Slow fault type:{primary.fault_type} is not a member of {{nw, fs, none}}"
             )
         print(" ".join(cmd))
-        _ = subprocess.Popen(
+        result = subprocess.run(
             cmd,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
             cwd=self.tool.compose,
+            capture_output=True,
+            text=True,
         )
+        if result.returncode != 0:
+            self.info(f"docker-compose up failed: {result.stderr}")
+            raise RuntimeError(f"docker-compose up failed: {result.stderr}")
         if primary.fault_type == "fs":
             for i in range(0, self.cluster_size - 2):
                 time.sleep(1)

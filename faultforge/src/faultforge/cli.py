@@ -255,7 +255,10 @@ def experiment_cmd(
             ora = Oracle.from_file(Path(oracle_path))
             issue_id = issue_id or ora.configured_issue_id
 
-        sys_cfg = SystemConfig(name=entry.get("system", "etcd"))
+        sys_cfg = SystemConfig(
+            name=entry.get("system", "etcd"),
+            version=entry.get("system_version"),
+        )
         bm_cfg = BenchmarkConfig(name=entry.get("benchmark", "ycsb"))
 
         cfg = SearchConfig(

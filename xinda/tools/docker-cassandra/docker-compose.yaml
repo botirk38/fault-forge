@@ -13,7 +13,9 @@ services:
       - .env
     cpus: ${CPU_LIMIT}
     mem_limit: ${MEM_LIMIT}
- 
+    cap_add:
+      - NET_ADMIN
+  
   cas2:
     image: "cassandra:4.0.10"
     container_name: "cas2"
@@ -32,7 +34,9 @@ services:
       - .env
     cpus: ${CPU_LIMIT}
     mem_limit: ${MEM_LIMIT}
- 
+    cap_add:
+      - NET_ADMIN
+  
   cas3:
     image: "cassandra:4.0.10"
     container_name: "cas3"
@@ -46,3 +50,5 @@ services:
       - .env
     cpus: ${CPU_LIMIT}
     mem_limit: ${MEM_LIMIT}
+    cap_add:
+      - NET_ADMIN
