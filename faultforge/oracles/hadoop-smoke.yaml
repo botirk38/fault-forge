@@ -4,9 +4,24 @@ issue:
   title: "Smoke test — task timeout under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "timeout"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "cluster failed to set up"
+      - file: "info"
+        contains: "No such container"
+
+  reproduced_if:
+    any:
+      - file: "compose"
+        regex: "Failed to place enough replicas"
+      - file: "compose"
+        regex: "Slow datanode"
+      - file: "info"
+        contains: "task timeout"
+      - file: "info"
+        contains: "job failure"

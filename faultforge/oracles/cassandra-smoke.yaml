@@ -4,9 +4,27 @@ issue:
   title: "Smoke test — request timeout under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "timeout"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "cluster failed to set up"
+      - file: "info"
+        contains: "No such container"
+
+  reproduced_if:
+    all:
+      - file: "info"
+        contains: "Benchmark safely ends"
+      - any:
+          - file: "compose"
+            regex: "timeout"
+          - file: "compose"
+            regex: "DOWN"
+          - file: "compose"
+            regex: "hinted handoff"
+          - file: "runtime"
+            regex: "errors?: [1-9]"

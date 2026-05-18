@@ -44,6 +44,7 @@ class TrialRunner:
                 success=True,
                 trial=trial,
                 log_path=system.log.compose,
+                artifacts=system.log.artifacts(),
             )
         except KeyboardInterrupt:
             raise

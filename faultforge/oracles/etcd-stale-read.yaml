@@ -4,11 +4,23 @@ issue:
   title: "Stale read after network partition"
   source: "production"
   category: "consistency"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: "leader"
-  pattern:
-    log_level: "ERROR"
-    exception: "StaleRead"
-    exception_msg_contains: "read from stale index"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "cluster failed to set up"
+      - file: "info"
+        contains: "No such container"
+
+  reproduced_if:
+    all:
+      - file: "compose"
+        regex: "error"
+      - any:
+          - file: "compose"
+            contains: "StaleRead"
+          - file: "compose"
+            contains: "read from stale index"

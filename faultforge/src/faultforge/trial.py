@@ -362,5 +362,6 @@ class TrialResult:
     success: bool
     trial: Trial
     log_path: str | None = None
+    artifacts: dict[str, str] = field(default_factory=dict)
     error: str | None = None
     metadata: dict[str, object] = field(default_factory=dict)

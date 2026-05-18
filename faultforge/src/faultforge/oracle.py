@@ -1,264 +1,165 @@
-"""Symptom oracle for FaultForge.
-
-Loads issue/oracle YAML configs and scores trial output against target symptoms.
-"""
+"""Rule-based symptom oracle for FaultForge."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import re
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
 
 
-class LogPattern(BaseModel):
-    """Pattern to match in trial logs."""
+class RuleLeaf(BaseModel):
+    """Leaf rule matching a single artifact file."""
 
-    log_level: str = ""
-    exception: str = ""
-    exception_msg_contains: str = ""
-    class_name: str = ""
-    thread: str = ""
-    stack_trace_prefix: list[str] = Field(default_factory=list)
+    file: str
+    contains: str | None = None
+    regex: str | None = None
+
+
+class RuleGroup(BaseModel):
+    """Group of rules combined with any/all logic."""
+
+    any: list[RuleLeaf | RuleGroup] = Field(default_factory=list)
+    all: list[RuleLeaf | RuleGroup] = Field(default_factory=list)
 
 
 class OracleConfig(BaseModel):
-    """Oracle detection rules."""
-
-    type: Literal["log-symptom", "exit-code"]
-    verdict: Literal["symptom_present", "symptom_absent"] = "symptom_present"
-    node: str = ""
-    pattern: LogPattern | None = None
-    exit_code: int | None = None
-
-
-class IssueConfig(BaseModel):
-    """Issue metadata."""
-
-    id: str
-    system: str
-    title: str = ""
-    source: str = ""
-    category: str = ""
-
-
-class IssueOracle(BaseModel):
     """Complete issue + oracle definition."""
 
-    issue: IssueConfig
-    oracle: OracleConfig
+    issue: dict[str, str]
+    invalid_if: RuleGroup | None = None
+    reproduced_if: RuleGroup | None = None
 
 
 class OracleMatch(BaseModel):
-    """A single matched signal in trial output."""
+    """A single matched signal."""
 
+    file: str
     line: str
     line_number: int
-    matched_fields: list[str]
+    rule: str
 
 
 class OracleResult(BaseModel):
-    """Result of scoring a trial against an oracle."""
+    """Result of evaluating a trial against an oracle."""
 
     issue_id: str
-    symptom_score: float
-    success: bool
+    valid: bool
+    reproduced: bool
     matched_signals: list[OracleMatch] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
 
 
 class Oracle:
-    """Evaluates trial output against a symptom oracle."""
+    """Evaluates trial artifacts against rule-based oracle."""
 
-    SCORE_THRESHOLD = 0.5
-
-    def __init__(self, config: IssueOracle) -> None:
+    def __init__(self, config: OracleConfig) -> None:
         self._config = config
 
     @property
     def configured_issue_id(self) -> str:
-        """Issue id from the loaded YAML/config (for CLI and orchestration)."""
-        return self._config.issue.id
+        return self._config.issue.get("id", "")
 
     @classmethod
     def from_file(cls, path: str | Path) -> Oracle:
-        """Load an oracle from a YAML file."""
         data = yaml.safe_load(Path(path).read_text())
         return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, data: Mapping[str, object]) -> Oracle:
-        """Load an oracle from a dict (e.g. parsed YAML)."""
-        config = IssueOracle.model_validate(data)
+        config = OracleConfig.model_validate(data)
         return cls(config)
 
-    def evaluate(
+    def evaluate(self, *, artifacts: dict[str, str] | None = None) -> OracleResult:
+        if artifacts is None:
+            artifacts = {}
+
+        issue_id = self._config.issue.get("id", "")
+
+        if self._config.invalid_if is not None:
+            invalid_matches = self._evaluate_group(self._config.invalid_if, artifacts)
+            if invalid_matches:
+                return OracleResult(
+                    issue_id=issue_id,
+                    valid=False,
+                    reproduced=False,
+                    matched_signals=invalid_matches,
+                    details={"reason": "invalid trial"},
+                )
+
+        reproduced_matches: list[OracleMatch] = []
+        if self._config.reproduced_if is not None:
+            reproduced_matches = self._evaluate_group(self._config.reproduced_if, artifacts)
+
+        reproduced = bool(reproduced_matches)
+
+        return OracleResult(
+            issue_id=issue_id,
+            valid=True,
+            reproduced=reproduced,
+            matched_signals=reproduced_matches,
+            details={"matched_count": len(reproduced_matches)},
+        )
+
+    def _evaluate_group(
         self,
-        *,
-        log_path: str | Path | None = None,
-        logs: str | Sequence[str] | None = None,
-        exit_code: int | None = None,
-    ) -> OracleResult:
-        """Score trial output against the oracle.
+        group: RuleGroup,
+        artifacts: dict[str, str],
+    ) -> list[OracleMatch]:
+        any_matches: list[OracleMatch] = []
+        for rule in group.any:
+            matches = self._evaluate_rule(rule, artifacts)
+            any_matches.extend(matches)
 
-        Provide one of:
-        - log_path: path to a log file
-        - logs: raw log string or list of lines
-        - exit_code: process exit code for exit-code oracles
-        """
-        oracle_type = self._config.oracle.type
+        all_matches: list[OracleMatch] = []
+        for rule in group.all:
+            matches = self._evaluate_rule(rule, artifacts)
+            if not matches:
+                return []
+            all_matches.extend(matches)
 
-        if oracle_type == "exit-code":
-            return self._evaluate_exit_code(exit_code)
+        return any_matches + all_matches
 
-        return self._evaluate_log_symptom(log_path, logs)
-
-    def _evaluate_log_symptom(
+    def _evaluate_rule(
         self,
-        log_path: str | Path | None = None,
-        logs: str | Sequence[str] | None = None,
-    ) -> OracleResult:
-        pattern = self._config.oracle.pattern
-        if pattern is None:
-            return OracleResult(
-                issue_id=self._config.issue.id,
-                symptom_score=0.0,
-                success=False,
-                details={"reason": "no pattern defined in oracle"},
-            )
+        rule: RuleLeaf | RuleGroup,
+        artifacts: dict[str, str],
+    ) -> list[OracleMatch]:
+        if isinstance(rule, RuleGroup):
+            return self._evaluate_group(rule, artifacts)
 
-        lines = self._read_lines(log_path, logs)
-        if not lines:
-            return OracleResult(
-                issue_id=self._config.issue.id,
-                symptom_score=0.0,
-                success=False,
-                details={"reason": "no log lines to check"},
-            )
+        return self._evaluate_leaf(rule, artifacts)
 
-        pattern_fields = [
-            f
-            for f in [
-                pattern.log_level,
-                pattern.exception,
-                pattern.exception_msg_contains,
-                pattern.class_name,
-                pattern.thread,
-            ]
-            if f
-        ]
-        total_fields = len(pattern_fields)
+    def _evaluate_leaf(
+        self,
+        leaf: RuleLeaf,
+        artifacts: dict[str, str],
+    ) -> list[OracleMatch]:
+        file_path = artifacts.get(leaf.file)
+        if file_path is None or not Path(file_path).exists():
+            return []
 
-        if total_fields == 0:
-            return OracleResult(
-                issue_id=self._config.issue.id,
-                symptom_score=0.0,
-                success=False,
-                details={"reason": "pattern has no fields to match"},
-            )
-
-        matched_signals: list[OracleMatch] = []
-        best_score = 0.0
+        lines = Path(file_path).read_text().splitlines()
+        matches: list[OracleMatch] = []
 
         for i, line in enumerate(lines, 1):
-            matched_fields = self._match_line(line, pattern)
-            if matched_fields:
-                line_score = len(matched_fields) / total_fields
-                best_score = max(best_score, line_score)
-                matched_signals.append(
+            matched = False
+            if leaf.contains is not None and leaf.contains in line:
+                matched = True
+            if leaf.regex is not None and re.search(leaf.regex, line):
+                matched = True
+
+            if matched:
+                matches.append(
                     OracleMatch(
+                        file=leaf.file,
                         line=line[:500],
                         line_number=i,
-                        matched_fields=matched_fields,
+                        rule=leaf.contains or leaf.regex or "",
                     )
                 )
 
-        symptom_score = round(best_score, 3)
-        success = self._apply_verdict(symptom_score)
-
-        return OracleResult(
-            issue_id=self._config.issue.id,
-            symptom_score=symptom_score,
-            matched_signals=matched_signals,
-            success=success,
-            details={
-                "pattern_fields": total_fields,
-                "total_lines_checked": len(lines),
-                "matches_found": len(matched_signals),
-            },
-        )
-
-    def _evaluate_exit_code(self, actual_exit_code: int | None) -> OracleResult:
-        expected = self._config.oracle.exit_code
-        if expected is None:
-            return OracleResult(
-                issue_id=self._config.issue.id,
-                symptom_score=0.0,
-                success=False,
-                details={"reason": "no exit_code defined in oracle"},
-            )
-
-        if actual_exit_code is None:
-            return OracleResult(
-                issue_id=self._config.issue.id,
-                symptom_score=0.0,
-                success=False,
-                details={"reason": "no actual exit code provided"},
-            )
-
-        match = actual_exit_code == expected
-        symptom_score = 1.0 if match else 0.0
-        success = self._apply_verdict(symptom_score)
-
-        return OracleResult(
-            issue_id=self._config.issue.id,
-            symptom_score=symptom_score,
-            success=success,
-            details={
-                "expected": expected,
-                "actual": actual_exit_code,
-            },
-        )
-
-    def _read_lines(
-        self,
-        log_path: str | Path | None = None,
-        logs: str | Sequence[str] | None = None,
-    ) -> list[str]:
-        if logs is not None:
-            if isinstance(logs, str):
-                return logs.splitlines()
-            return list(logs)
-
-        if log_path and Path(log_path).exists():
-            return Path(log_path).read_text().splitlines()
-
-        return []
-
-    def _match_line(self, line: str, pattern: LogPattern) -> list[str]:
-        matched: list[str] = []
-
-        if pattern.log_level and pattern.log_level.upper() in line.upper():
-            matched.append("log_level")
-
-        if pattern.exception and pattern.exception in line:
-            matched.append("exception")
-
-        if pattern.exception_msg_contains and pattern.exception_msg_contains in line:
-            matched.append("exception_msg_contains")
-
-        if pattern.class_name and pattern.class_name in line:
-            matched.append("class_name")
-
-        if pattern.thread and pattern.thread in line:
-            matched.append("thread")
-
-        return matched
-
-    def _apply_verdict(self, symptom_score: float) -> bool:
-        expect_present = self._config.oracle.verdict == "symptom_present"
-        if expect_present:
-            return symptom_score >= self.SCORE_THRESHOLD
-        return symptom_score < self.SCORE_THRESHOLD
+        return matches

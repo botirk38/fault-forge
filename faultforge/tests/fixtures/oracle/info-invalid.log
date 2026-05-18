@@ -1,0 +1,2 @@
+[1779079081772547328, 05:38:01] if_iaso: none
+[1779079089820858368, 05:38:09] docker-compose up failed: open /home/botirk/repos/fault-forge/xinda/tools/docker-hadoop/docker-compose.yaml: no such file or directory

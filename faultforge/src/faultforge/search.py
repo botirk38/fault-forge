@@ -230,10 +230,10 @@ class Searcher:
             symptom_score = 0.0
             oracle_success = False
 
-            if oracle is not None and trial_result.log_path is not None:
-                verdict = oracle.evaluate(log_path=trial_result.log_path)
-                symptom_score = verdict.symptom_score
-                oracle_success = verdict.success
+            if oracle is not None and trial_result.artifacts:
+                verdict = oracle.evaluate(artifacts=trial_result.artifacts)
+                symptom_score = 1.0 if verdict.reproduced else 0.0
+                oracle_success = verdict.reproduced
 
             results.append(
                 SearchResult(

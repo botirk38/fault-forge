@@ -4,9 +4,30 @@ issue:
   title: "Smoke test — request timeout under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "timeout"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "cluster failed to set up"
+      - file: "info"
+        contains: "No such container"
+      - file: "info"
+        contains: "TABLE:usertable COLUMNFAMILY:family initiation timeout"
+
+  reproduced_if:
+    any:
+      - file: "runtime"
+        regex: "CallTimeoutException"
+      - file: "runtime"
+        regex: "RetriesExhaustedException"
+      - file: "compose"
+        regex: "region unavailable"
+      - file: "compose"
+        regex: "ZooKeeper session expired"
+      - file: "compose"
+        regex: "Slow datanode"
+      - file: "info"
+        contains: "ycsb_process took too long"

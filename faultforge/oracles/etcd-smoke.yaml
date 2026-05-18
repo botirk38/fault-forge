@@ -4,9 +4,28 @@ issue:
   title: "Smoke test — request timeout or leader change under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "request timed out"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "cluster failed to set up"
+      - file: "info"
+        contains: "No such container"
+
+  reproduced_if:
+    any:
+      - file: "compose"
+        regex: "i/o timeout"
+      - file: "compose"
+        regex: "lost TCP streaming connection"
+      - file: "compose"
+        regex: "peer became inactive"
+      - file: "compose"
+        regex: "failed to reach the peer URL"
+      - file: "compose"
+        regex: "apply request took too long"
+      - file: "info"
+        contains: "Leader changed: True"

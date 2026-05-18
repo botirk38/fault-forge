@@ -4,9 +4,28 @@ issue:
   title: "Smoke test — producer/consumer timeout under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "timeout"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "No such container"
+      - file: "info"
+        contains: "Warm-up period does not end"
+
+  reproduced_if:
+    any:
+      - file: "openmsg_driver"
+        regex: "err\/s\s+[1-9]"
+      - file: "kafka_producer"
+        regex: "timeout"
+      - file: "kafka_consumer"
+        regex: "timeout"
+      - file: "compose"
+        regex: "broker unavailable"
+      - file: "compose"
+        regex: "not enough replicas"
+      - file: "compose"
+        regex: "disconnect from broker"

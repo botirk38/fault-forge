@@ -27,6 +27,7 @@ class _FakeRunner:
             success=True,
             trial=trial,
             log_path=f"/tmp/trial-{self.completed_runs}.log",
+            artifacts={"info": f"/tmp/info-{self.completed_runs}.log"},
         )
 
 
@@ -203,13 +204,13 @@ class TestSearchRunner:
             if fake.completed_runs == 2:
                 return OracleResult(
                     issue_id="TEST",
-                    symptom_score=0.9,
-                    success=True,
+                    valid=True,
+                    reproduced=True,
                 )
             return OracleResult(
                 issue_id="TEST",
-                symptom_score=0.3,
-                success=False,
+                valid=True,
+                reproduced=False,
             )
 
         mock_oracle = MagicMock(spec=Oracle)
@@ -219,4 +220,4 @@ class TestSearchRunner:
         results = Searcher(fake).run(cfg)
 
         assert results[0].symptom_score >= results[1].symptom_score
-        assert results[0].symptom_score == 0.9
+        assert results[0].symptom_score == 1.0

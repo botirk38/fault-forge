@@ -147,3 +147,43 @@ class Logging:
             os.makedirs(path_)
         else:
             print(f"Directory {path_} already exists!")
+
+    def artifacts(self) -> dict[str, str]:
+        """Return all log file paths as a dict for oracle evaluation."""
+        result: dict[str, str] = {
+            "compose": self.compose,
+            "info": self.info,
+            "runtime": self.runtime,
+            "raw": self.raw,
+        }
+        if hasattr(self, "time_series") and self.time_series:
+            result["time_series"] = self.time_series
+        if hasattr(self, "summary") and self.summary:
+            result["summary"] = self.summary
+        if hasattr(self, "crdb_log") and self.crdb_log:
+            result["crdb_log"] = self.crdb_log
+        if hasattr(self, "crdb_health_log") and self.crdb_health_log:
+            result["crdb_health"] = self.crdb_health_log
+        if hasattr(self, "crdb_pebble_log") and self.crdb_pebble_log:
+            result["crdb_pebble"] = self.crdb_pebble_log
+        if hasattr(self, "crdb_stderr_log") and self.crdb_stderr_log:
+            result["crdb_stderr"] = self.crdb_stderr_log
+        if hasattr(self, "kafka_producer") and self.kafka_producer:
+            result["kafka_producer"] = self.kafka_producer
+        if hasattr(self, "kafka_consumer") and self.kafka_consumer:
+            result["kafka_consumer"] = self.kafka_consumer
+        if hasattr(self, "openmsg_driver") and self.openmsg_driver:
+            result["openmsg_driver"] = self.openmsg_driver
+        if hasattr(self, "openmsg_summary") and self.openmsg_summary:
+            result["openmsg_summary"] = self.openmsg_summary
+        if hasattr(self, "openmsg_worker1") and self.openmsg_worker1:
+            result["openmsg_worker1"] = self.openmsg_worker1
+        if hasattr(self, "openmsg_worker2") and self.openmsg_worker2:
+            result["openmsg_worker2"] = self.openmsg_worker2
+        if hasattr(self, "depfast_misc") and self.depfast_misc:
+            result["depfast_misc"] = self.depfast_misc
+        if hasattr(self, "depfast_summary") and self.depfast_summary:
+            result["depfast_summary"] = self.depfast_summary
+        if hasattr(self, "copilot_misc") and self.copilot_misc:
+            result["copilot_misc"] = self.copilot_misc
+        return result

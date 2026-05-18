@@ -1,0 +1,3 @@
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.212465Z","caller":"etcdserver/zap_raft.go:77","msg":"2c6c7b8d0d0933f7 i/o timeout"}
+etcd0  | {"level":"error","ts":"2026-05-17T22:09:47.212472Z","caller":"etcdserver/zap_raft.go:77","msg":"lost TCP streaming connection with remote peer"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.233794Z","caller":"etcdserver/server.go:2062","msg":"peer became inactive"}

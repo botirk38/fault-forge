@@ -4,9 +4,29 @@ issue:
   title: "Smoke test — request timeout under network delay"
   source: "synthetic"
   category: "availability"
+
 oracle:
-  type: "log-symptom"
-  verdict: "symptom_present"
-  node: ""
-  pattern:
-    exception_msg_contains: "timeout"
+  invalid_if:
+    any:
+      - file: "info"
+        contains: "docker-compose up failed"
+      - file: "info"
+        contains: "No such container"
+
+  reproduced_if:
+    all:
+      - file: "info"
+        contains: "Benchmark safely ends"
+      - any:
+          - file: "runtime"
+            regex: "errors?: [1-9]"
+          - file: "crdb_log"
+            regex: "transport is closing"
+          - file: "crdb_log"
+            regex: "connection refused"
+          - file: "crdb_log"
+            regex: "context deadline exceeded"
+          - file: "crdb_log"
+            regex: "latch"
+          - file: "crdb_log"
+            regex: "DistSender"
