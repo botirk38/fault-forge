@@ -1,0 +1,169 @@
+name: depfast
+runs:
+  - name: baseline-none
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [none]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-depfast1-100ms
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-depfast1-500ms
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-depfast1-1000ms
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-depfast2-100ms
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast2]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-depfast2-500ms
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast2]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-depfast1-0.25
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-depfast1-0.5
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-depfast1-256m
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-depfast1-512m
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-depfast1-restart
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-depfast1-stop
+    issue_id: ""
+    system: depfast
+    benchmark: depfast
+    oracle: oracles/depfast.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [depfast1]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]

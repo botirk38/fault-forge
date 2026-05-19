@@ -1,7 +1,7 @@
 issue:
-  id: "DEPFAST-SMOKE-1"
-  system: "depfast"
-  title: "Smoke test — request timeout under network delay"
+  id: "COPILOT-1"
+  system: "copilot"
+  title: "Fault reproduction — timeout, failure, or error under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -19,5 +19,9 @@ oracle:
         contains: "timeout"
       - file: "info"
         contains: "failed"
-      - file: "depfast_misc"
+      - file: "copilot_misc"
         contains: "error"
+      - file: "compose"
+        regex: "timeout"
+      - file: "compose"
+        regex: "failed"

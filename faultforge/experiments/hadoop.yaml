@@ -1,0 +1,181 @@
+name: hadoop
+runs:
+  - name: baseline-none
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [none]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-namenode-100ms
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-namenode-500ms
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-namenode-1000ms
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-datanode-100ms
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [datanode]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-datanode-500ms
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [datanode]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-namenode-0.25
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-namenode-0.5
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-namenode-256m
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-namenode-512m
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-namenode-restart
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-namenode-stop
+    issue_id: ""
+    system: hadoop
+    system_version: "3.3.6"
+    benchmark: mrbench
+    oracle: oracles/hadoop.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [namenode]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]

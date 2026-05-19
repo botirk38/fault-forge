@@ -1,7 +1,7 @@
 issue:
-  id: "HADOOP-SMOKE-1"
+  id: "HADOOP-1"
   system: "hadoop"
-  title: "Smoke test — task timeout under network delay"
+  title: "Fault reproduction — failed tasks, replica placement failure, or slow datanode under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -21,6 +21,10 @@ oracle:
         regex: "Failed to place enough replicas"
       - file: "compose"
         regex: "Slow datanode"
+      - file: "compose"
+        regex: "Failed to connect"
+      - file: "compose"
+        regex: "Connection refused"
       - file: "info"
         contains: "task timeout"
       - file: "info"

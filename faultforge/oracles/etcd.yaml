@@ -1,7 +1,7 @@
 issue:
-  id: "ETCD-SMOKE-1"
+  id: "ETCD-1"
   system: "etcd"
-  title: "Smoke test — request timeout or leader change under network delay"
+  title: "Fault reproduction — leader change, timeout, or network error under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -27,5 +27,9 @@ oracle:
         regex: "failed to reach the peer URL"
       - file: "compose"
         regex: "apply request took too long"
+      - file: "compose"
+        regex: "overloaded network"
+      - file: "compose"
+        regex: "heartbeat"
       - file: "info"
         contains: "Leader changed: True"

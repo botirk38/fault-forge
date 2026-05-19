@@ -1,0 +1,183 @@
+name: etcd
+runs:
+  - name: baseline-none
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [none]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-leader-100ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-leader-500ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-leader-1000ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-follower-100ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [follower]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-follower-500ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [follower]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-follower-1000ms
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [follower]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-leader-0.25
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-leader-0.5
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-leader-256m
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-leader-512m
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-leader-restart
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-leader-stop
+    issue_id: ""
+    system: etcd
+    benchmark: ycsb
+    oracle: oracles/etcd.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [leader]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]

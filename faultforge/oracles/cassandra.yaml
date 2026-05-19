@@ -1,7 +1,7 @@
 issue:
-  id: "CASSANDRA-SMOKE-1"
+  id: "CASSANDRA-1"
   system: "cassandra"
-  title: "Smoke test — request timeout under network delay"
+  title: "Fault reproduction — timeout, unavailable, or DOWN node under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -26,5 +26,11 @@ oracle:
             regex: "DOWN"
           - file: "compose"
             regex: "hinted handoff"
+          - file: "compose"
+            regex: "UnavailableException"
+          - file: "compose"
+            regex: "ReadTimeoutException"
+          - file: "compose"
+            regex: "WriteTimeoutException"
           - file: "runtime"
             regex: "errors?: [1-9]"

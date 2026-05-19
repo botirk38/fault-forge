@@ -45,7 +45,7 @@ class NetworkFaultInjector(FaultInjector):
                 "eth0",
                 "root",
                 "netem",
-                f"delay{delay_ms}ms",
+                f"delay {delay_ms}ms",
             ],
         )
 
@@ -62,7 +62,7 @@ class NetworkFaultInjector(FaultInjector):
                 "eth0",
                 "root",
                 "netem",
-                f"loss{loss_pct}%",
+                f"loss {loss_pct}%",
             ],
         )
 

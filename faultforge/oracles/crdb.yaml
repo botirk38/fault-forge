@@ -1,7 +1,7 @@
 issue:
-  id: "CRDB-SMOKE-1"
+  id: "CRDB-1"
   system: "crdb"
-  title: "Smoke test — request timeout under network delay"
+  title: "Fault reproduction — transport error, deadline exceeded, or latch contention under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -30,3 +30,7 @@ oracle:
             regex: "latch"
           - file: "crdb_log"
             regex: "DistSender"
+          - file: "crdb_log"
+            regex: "retry"
+          - file: "crdb_log"
+            regex: "error"

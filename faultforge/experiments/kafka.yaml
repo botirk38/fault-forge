@@ -1,0 +1,169 @@
+name: kafka
+runs:
+  - name: baseline-none
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [none]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-kafka1-100ms
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-kafka1-500ms
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-kafka1-1000ms
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-kafka2-100ms
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka2]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-kafka2-500ms
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka2]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-kafka1-0.25
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-kafka1-0.5
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-kafka1-256m
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-kafka1-512m
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-kafka1-restart
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-kafka1-stop
+    issue_id: ""
+    system: kafka
+    benchmark: openmsg
+    oracle: oracles/kafka.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [kafka1]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]

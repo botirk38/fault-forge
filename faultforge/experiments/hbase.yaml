@@ -1,0 +1,169 @@
+name: hbase
+runs:
+  - name: baseline-none
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [none]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-master-100ms
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-master-500ms
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-master-1000ms
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [nw]
+    magnitudes_ms: [1000]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-regionserver-100ms
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-regionserver]
+    fault_models: [nw]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: nw-regionserver-500ms
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-regionserver]
+    fault_models: [nw]
+    magnitudes_ms: [500]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-master-0.25
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: cpu-master-0.5
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [cpu]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-master-256m
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: mem-master-512m
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [mem]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-master-restart
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]
+
+  - name: process-master-stop
+    issue_id: ""
+    system: hbase
+    benchmark: ycsb
+    oracle: oracles/hbase.yaml
+    strategy: exhaustive
+    max_trials: 1
+    max_faults_per_trial: 1
+    nodes: [hbase-master]
+    fault_models: [process]
+    magnitudes_ms: [100]
+    start_times_s: [5]
+    durations_s: [30]

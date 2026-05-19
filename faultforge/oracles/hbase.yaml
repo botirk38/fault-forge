@@ -1,7 +1,7 @@
 issue:
-  id: "HBASE-SMOKE-1"
+  id: "HBASE-1"
   system: "hbase"
-  title: "Smoke test — request timeout under network delay"
+  title: "Fault reproduction — CallTimeoutException, RetriesExhaustedException, or region unavailable under injected faults"
   source: "synthetic"
   category: "availability"
 

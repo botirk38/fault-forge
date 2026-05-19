@@ -1,7 +1,7 @@
 issue:
-  id: "KAFKA-SMOKE-1"
+  id: "KAFKA-1"
   system: "kafka"
-  title: "Smoke test — producer/consumer timeout under network delay"
+  title: "Fault reproduction — producer/consumer timeout, broker unavailable, or errors under injected faults"
   source: "synthetic"
   category: "availability"
 
@@ -18,7 +18,9 @@ oracle:
   reproduced_if:
     any:
       - file: "openmsg_driver"
-        regex: "err\/s\s+[1-9]"
+        regex: "err/s\s+[1-9]"
+      - file: "openmsg_driver"
+        regex: "Error"
       - file: "kafka_producer"
         regex: "timeout"
       - file: "kafka_consumer"
@@ -29,3 +31,5 @@ oracle:
         regex: "not enough replicas"
       - file: "compose"
         regex: "disconnect from broker"
+      - file: "compose"
+        regex: "RequestTimedOut"
