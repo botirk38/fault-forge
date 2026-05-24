@@ -1,0 +1,5 @@
+roach1 | I260517 22:08:47.112465 1 server/server.go:1234  [-] 1  CockroachDB node starting
+roach1 | W260517 22:09:47.112465 123 kv/kvserver/replica_raft.go:567  [-] 1  r45: raft leader stepped down: communication with followers lost
+roach1 | W260517 22:09:47.312465 123 kv/kvserver/replica_range_lease.go:234  [-] 1  r45: not leaseholder; current lease held by n2
+roach1 | E260517 22:09:48.012465 123 kv/kvserver/replica_range_lease.go:345  [-] 1  r45: lease transfer failed: context deadline exceeded
+roach1 | W260517 22:09:48.212465 123 kv/kvserver/store.go:678  [-] 1  r45: range unavailable: no leaseholder

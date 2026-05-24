@@ -1,0 +1,4 @@
+cas1   | INFO  [ReadStage-1] 2026-05-17 22:08:47,112 ReadCallback.java:81 - Reading CL=QUORUM from table test.users
+cas1   | WARN  [ReadStage-2] 2026-05-17 22:09:47,112 ReadCallback.java:121 - ReadTimeoutException: Operation timed out - received only 1 responses.
+cas1   | WARN  [ReadRepairStage-1] 2026-05-17 22:09:47,212 ReadRepairMetrics.java:45 - ReadRepair timeout waiting for mutation acknowledgement
+cas2   | WARN  [ReadStage-3] 2026-05-17 22:09:47,412 AbstractReadExecutor.java:89 - Slow total read latency 5231ms for query SELECT * FROM test.users

@@ -1,0 +1,6 @@
+etcd0  | {"level":"info","ts":"2026-05-17T22:08:47.112465Z","caller":"etcdserver/server.go:892","msg":"starting etcd server","version":"3.5.10"}
+etcd0  | {"level":"info","ts":"2026-05-17T22:08:47.212465Z","caller":"rafthttp/stream.go:249","msg":"established TCP streaming connection with remote peer","stream-writer-type":"stream MsgApp v2"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.212465Z","caller":"etcdserver/zap_raft.go:77","msg":"2c6c7b8d0d0933f7 i/o timeout"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.312465Z","caller":"etcdserver/server.go:2062","msg":"peer became inactive","remote-peer-id":"8e9e05c52164694d"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:48.112465Z","caller":"etcdserver/server.go:1205","msg":"lease expired","lease-id":"694d7550c0a32bab","lease-ttl":5}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:48.212465Z","caller":"mvcc/kvstore.go:388","msg":"revoked lease","lease-id":"694d7550c0a32bab"}

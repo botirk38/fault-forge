@@ -90,7 +90,9 @@ class TestExperimentConfigFiles:
                 oracle_path = run.get("oracle")
                 if oracle_path:
                     full = base / oracle_path
-                    assert full.exists(), f"{path.name}/{run['name']}: oracle {oracle_path} not found"
+                    assert full.exists(), (
+                        f"{path.name}/{run['name']}: oracle {oracle_path} not found"
+                    )
 
     def test_etcd_danger_zone_has_multiple_runs(self) -> None:
         data = yaml.safe_load((CONFIGS_DIR / "etcd-danger-zone.yaml").read_text(encoding="utf-8"))
@@ -170,14 +172,18 @@ class TestOracleSeverityThreshold:
         assert cfg.severity_threshold == 1
 
     def test_threshold_two_requires_two_matches(self) -> None:
-        oracle = Oracle(OracleConfig(
-            issue={"id": "T"},
-            reproduced_if=RuleGroup(any=[
-                RuleLeaf(file="compose", regex="i/o timeout"),
-                RuleLeaf(file="compose", regex="peer became inactive"),
-            ]),
-            severity_threshold=2,
-        ))
+        oracle = Oracle(
+            OracleConfig(
+                issue={"id": "T"},
+                reproduced_if=RuleGroup(
+                    any=[
+                        RuleLeaf(file="compose", regex="i/o timeout"),
+                        RuleLeaf(file="compose", regex="peer became inactive"),
+                    ]
+                ),
+                severity_threshold=2,
+            )
+        )
         fixture = Path(__file__).parent / "fixtures" / "oracle" / "compose-error.log"
         result = oracle.evaluate(artifacts={"compose": str(fixture)})
         assert result.valid is True
@@ -186,13 +192,17 @@ class TestOracleSeverityThreshold:
         assert result.score == 1.0
 
     def test_threshold_higher_than_matches_not_reproduced(self) -> None:
-        oracle = Oracle(OracleConfig(
-            issue={"id": "T"},
-            reproduced_if=RuleGroup(any=[
-                RuleLeaf(file="compose", regex="i/o timeout"),
-            ]),
-            severity_threshold=5,
-        ))
+        oracle = Oracle(
+            OracleConfig(
+                issue={"id": "T"},
+                reproduced_if=RuleGroup(
+                    any=[
+                        RuleLeaf(file="compose", regex="i/o timeout"),
+                    ]
+                ),
+                severity_threshold=5,
+            )
+        )
         fixture = Path(__file__).parent / "fixtures" / "oracle" / "compose-error.log"
         result = oracle.evaluate(artifacts={"compose": str(fixture)})
         assert result.valid is True
@@ -200,14 +210,18 @@ class TestOracleSeverityThreshold:
         assert 0.0 < result.score < 1.0
 
     def test_score_gradient(self) -> None:
-        oracle = Oracle(OracleConfig(
-            issue={"id": "T"},
-            reproduced_if=RuleGroup(any=[
-                RuleLeaf(file="compose", regex="i/o timeout"),
-                RuleLeaf(file="compose", regex="peer became inactive"),
-            ]),
-            severity_threshold=4,
-        ))
+        oracle = Oracle(
+            OracleConfig(
+                issue={"id": "T"},
+                reproduced_if=RuleGroup(
+                    any=[
+                        RuleLeaf(file="compose", regex="i/o timeout"),
+                        RuleLeaf(file="compose", regex="peer became inactive"),
+                    ]
+                ),
+                severity_threshold=4,
+            )
+        )
         fixture = Path(__file__).parent / "fixtures" / "oracle" / "compose-error.log"
         result = oracle.evaluate(artifacts={"compose": str(fixture)})
         assert result.score == 0.5  # 2 matches / 4 threshold
