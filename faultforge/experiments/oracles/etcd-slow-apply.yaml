@@ -1,0 +1,22 @@
+issue:
+  id: "ETCD-SLOW-APPLY"
+  system: "etcd"
+  title: "Slow apply requests degrade client latency and trigger warnings"
+  source: "https://github.com/etcd-io/etcd/issues/18109"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "apply request took too long"
+    - file: compose
+      regex: "overloaded network"
+    - file: compose
+      regex: "slow fdatasync"
+    - file: compose
+      regex: "server is likely overloaded"

@@ -1,0 +1,22 @@
+issue:
+  id: "CRDB-DISK-STALL"
+  system: "crdb"
+  title: "Disk stall detection triggers node liveness expiration"
+  source: "https://www.cockroachlabs.com/docs/stable/cluster-setup-troubleshooting#disk-stalls"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "disk stall detected"
+    - file: compose
+      regex: "node liveness.*expired"
+    - file: compose
+      regex: "write stall"
+    - file: compose
+      regex: "unable to sync log files"

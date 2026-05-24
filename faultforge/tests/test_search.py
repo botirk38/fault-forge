@@ -206,11 +206,13 @@ class TestSearchRunner:
                     issue_id="TEST",
                     valid=True,
                     reproduced=True,
+                    score=1.0,
                 )
             return OracleResult(
                 issue_id="TEST",
                 valid=True,
                 reproduced=False,
+                score=0.0,
             )
 
         mock_oracle = MagicMock(spec=Oracle)

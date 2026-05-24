@@ -1,0 +1,24 @@
+issue:
+  id: "CASSANDRA-18120"
+  system: "cassandra"
+  title: "Single slow node dramatically reduces cluster logged batch write throughput"
+  source: "https://issues.apache.org/jira/browse/CASSANDRA-18120"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+    - file: info
+      contains: "Cassandra cluster not properly set up"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "MutationStage.*timeout"
+    - file: compose
+      regex: "WriteTimeoutException"
+    - file: compose
+      regex: "Operation timed out"
+    - file: compose
+      regex: "GossipStage.*endpoint.*dead"

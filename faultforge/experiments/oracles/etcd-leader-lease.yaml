@@ -1,0 +1,22 @@
+issue:
+  id: "ETCD-LEADER-LEASE"
+  system: "etcd"
+  title: "Leader lease revocation under slow fdatasync or network delay"
+  source: "https://github.com/etcd-io/etcd/issues/15247"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "lease expired"
+    - file: compose
+      regex: "i/o timeout"
+    - file: compose
+      contains: "peer became inactive"
+    - file: compose
+      regex: "revoked lease"

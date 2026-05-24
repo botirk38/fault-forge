@@ -1,0 +1,21 @@
+issue:
+  id: "HADOOP-SPECULATIVE"
+  system: "hadoop"
+  title: "Datanode slow fault triggers speculative execution and task timeouts"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "Task.*timeout"
+    - file: compose
+      regex: "speculative"
+    - file: compose
+      regex: "attempt.*failed"
+    - file: compose
+      regex: "Container.*killed"

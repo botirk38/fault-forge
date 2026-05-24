@@ -32,6 +32,7 @@ class OracleConfig(BaseModel):
     issue: dict[str, str]
     invalid_if: RuleGroup | None = None
     reproduced_if: RuleGroup | None = None
+    severity_threshold: int = 1
 
 
 class OracleMatch(BaseModel):
@@ -49,6 +50,7 @@ class OracleResult(BaseModel):
     issue_id: str
     valid: bool
     reproduced: bool
+    score: float = 0.0
     matched_signals: list[OracleMatch] = Field(default_factory=list)
     details: dict[str, Any] = Field(default_factory=dict)
 
@@ -94,14 +96,17 @@ class Oracle:
         if self._config.reproduced_if is not None:
             reproduced_matches = self._evaluate_group(self._config.reproduced_if, artifacts)
 
-        reproduced = bool(reproduced_matches)
+        threshold = self._config.severity_threshold
+        reproduced = len(reproduced_matches) >= threshold
+        score = min(len(reproduced_matches) / threshold, 1.0) if threshold > 0 else 0.0
 
         return OracleResult(
             issue_id=issue_id,
             valid=True,
             reproduced=reproduced,
+            score=score,
             matched_signals=reproduced_matches,
-            details={"matched_count": len(reproduced_matches)},
+            details={"matched_count": len(reproduced_matches), "threshold": threshold},
         )
 
     def _evaluate_group(

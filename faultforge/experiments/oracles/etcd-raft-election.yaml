@@ -1,0 +1,21 @@
+issue:
+  id: "ETCD-RAFT-ELECTION"
+  system: "etcd"
+  title: "Raft election timeout cascade under network delay"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "lost TCP streaming connection"
+    - file: compose
+      regex: "leader changed"
+    - file: compose
+      regex: "raft.*leader.*at term.*has been deposed"
+    - file: compose
+      regex: "elected leader"

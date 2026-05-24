@@ -1,0 +1,22 @@
+issue:
+  id: "HADOOP-LIMPLOCK"
+  system: "hadoop"
+  title: "Namenode slow fault causes cluster-wide limplock"
+  source: "https://www.usenix.org/conference/osdi14/technical-sessions/presentation/haryadi"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "dead datanode"
+    - file: compose
+      regex: "block report.*timeout"
+    - file: compose
+      regex: "Slow.*BlockReport"
+    - file: compose
+      regex: "heartbeat.*expired"

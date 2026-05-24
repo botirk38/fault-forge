@@ -13,8 +13,11 @@ faultforge/software/
 faultforge/stderr.log
 faultforge/runtime.local.yaml
 
-# Experiment outputs (keep configs, remove results)
+# Experiment outputs (keep configs/oracles, ignore runtime results)
 faultforge/experiments/*/
+!faultforge/experiments/oracles/
+!faultforge/experiments/configs/
+!faultforge/experiments/README.md
 faultforge/oracles/*.log
 
 # Xinda runtime

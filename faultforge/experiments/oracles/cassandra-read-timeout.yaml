@@ -1,0 +1,22 @@
+issue:
+  id: "CASSANDRA-15442"
+  system: "cassandra"
+  title: "Read repair implicitly increases read timeout value under slow faults"
+  source: "https://issues.apache.org/jira/browse/CASSANDRA-15442"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "ReadTimeoutException"
+    - file: compose
+      regex: "ReadRepair.*timeout"
+    - file: compose
+      regex: "Read.*timed out"
+    - file: compose
+      regex: "Slow.*total"

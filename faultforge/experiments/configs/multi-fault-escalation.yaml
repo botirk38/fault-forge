@@ -1,0 +1,62 @@
+name: multi-fault-escalation
+
+runs:
+  - name: etcd-multi-nw-leader-follower
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-raft-election.yaml
+    issue_id: "ETCD-RAFT-ELECTION"
+    nodes: ["leader", "follower"]
+    fault_models: ["nw"]
+    magnitudes_ms: [5, 10, 50, 100]
+    start_times_s: [0, 10]
+    durations_s: [60]
+    max_faults_per_trial: 2
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: etcd-multi-nw-fs-leader
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-leader-lease.yaml
+    issue_id: "ETCD-LEADER-LEASE"
+    nodes: ["leader"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [10, 50, 100]
+    start_times_s: [0, 10]
+    durations_s: [60]
+    max_faults_per_trial: 2
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: cassandra-multi-nw-two-nodes
+    system: cassandra
+    benchmark: ycsb
+    oracle: experiments/oracles/cassandra-batch-throughput.yaml
+    issue_id: "CASSANDRA-18120"
+    nodes: ["cas1", "cas2"]
+    fault_models: ["nw"]
+    magnitudes_ms: [5, 10, 50]
+    start_times_s: [0, 10]
+    durations_s: [60]
+    max_faults_per_trial: 2
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: hbase-multi-nw-fs-regionserver
+    system: hbase
+    benchmark: ycsb
+    oracle: experiments/oracles/hbase-slow-wal.yaml
+    issue_id: "HBASE-26347"
+    nodes: ["hbase-regionserver"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [10, 50, 100]
+    start_times_s: [0, 10]
+    durations_s: [60]
+    max_faults_per_trial: 2
+    max_trials: 50
+    strategy: shuffled
+    seed: 42

@@ -274,6 +274,9 @@ def experiment_cmd(
             strategy=_STRATEGY_CHOICES.get(entry.get("strategy", "exhaustive"), EXHAUSTIVE_GRID),
             strategy_seed=entry.get("seed"),
             oracle=ora,
+            nw_flaky_pcts=entry.get("nw_flaky_pcts", []),
+            nw_severity_overrides=entry.get("nw_severity_overrides", []),
+            fs_severity_overrides=entry.get("fs_severity_overrides", []),
         )
         exp.add(entry["name"], cfg, issue_id=issue_id)
 
