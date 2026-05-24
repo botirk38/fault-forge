@@ -52,9 +52,7 @@ class Mapred(TestSystem):
     def _docker_status_checker(self):
         # Wait for namenode to be ready first
         time.sleep(30)
-        cmd = (
-            "docker exec namenode hdfs dfsadmin -report | grep 'Live datanodes ' |grep -oP '\\(.*\\)' | tr -d '()'"
-        )
+        cmd = "docker exec namenode hdfs dfsadmin -report | grep 'Live datanodes ' |grep -oP '\\(.*\\)' | tr -d '()'"
         counter = 0
         while True:
             num_live_datanode = subprocess.run(

@@ -1,0 +1,26 @@
+issue:
+  id: "HBASE-26347"
+  system: "hbase"
+  title: "Slow WAL sync blocks regionserver and triggers abort"
+  source: "https://issues.apache.org/jira/browse/HBASE-26347"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "Slow sync cost"
+    - file: compose
+      regex: "RegionServer abort"
+    - file: compose
+      regex: "Took too long"
+    - file: compose
+      regex: "slow datanode"
+    - file: compose
+      regex: "StreamSlowMonitor"
+    - file: compose
+      regex: "No servers available"

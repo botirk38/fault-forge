@@ -1,0 +1,5 @@
+cas1   | INFO  [GossipStage:1] 2026-05-17 22:08:47,112 Gossiper.java:1234 - Node /172.18.0.2 is now UP
+cas2   | INFO  [GossipStage:1] 2026-05-17 22:08:47,212 Gossiper.java:1234 - Node /172.18.0.3 is now UP
+cas1   | WARN  [MutationStage-2] 2026-05-17 22:09:47,112 AbstractWriteResponseHandler.java:123 - MutationStage timeout writing to /172.18.0.2
+cas1   | ERROR [MutationStage-3] 2026-05-17 22:09:47,312 StorageProxy.java:456 - WriteTimeoutException: Operation timed out - received only 1 responses.
+cas1   | WARN  [GossipStage:1] 2026-05-17 22:09:48,112 FailureDetector.java:234 - GossipStage: endpoint /172.18.0.4 marked dead

@@ -1,0 +1,4 @@
+roach1 | I260517 22:08:47.112465 1 server/server.go:1234  [-] 1  CockroachDB node starting at 2026-05-17 22:08:47
+roach1 | W260517 22:09:47.112465 54 storage/pebble.go:567  [-] 1  disk stall detected: unable to sync log files within 20s
+roach1 | W260517 22:09:47.312465 54 storage/pebble.go:789  [-] 1  write stall detected: too many L0 sub-levels
+roach1 | E260517 22:09:48.012465 78 kv/kvserver/liveness/liveness.go:456  [-] 1  node liveness record expired for n1

@@ -1,0 +1,6 @@
+[1779079081772547328, 05:38:01] if_iaso: none
+[1779079081773562880, 05:38:01] Current workload: ycsb
+[1779079089820858368, 05:38:09] Bringing up a new docker-compose cluster
+[1779079120947250688, 05:38:40] Containers are ready
+[1779079122992315648, 05:38:42] Benchmark safely ends
+[1779079142992315648, 05:39:02] THE END

@@ -1,0 +1,4 @@
+namenode  | 2026-05-17 22:08:47,112 INFO org.apache.hadoop.hdfs.server.namenode.NameNode: STARTUP_MSG: starting NameNode
+namenode  | 2026-05-17 22:09:47,112 WARN org.apache.hadoop.hdfs.server.blockmanagement.DatanodeManager: dead datanode 172.18.0.5:9866 removed from cluster
+namenode  | 2026-05-17 22:09:47,312 WARN org.apache.hadoop.hdfs.server.blockmanagement.BlockManager: block report timeout for datanode 172.18.0.5:9866 after 30000ms
+namenode  | 2026-05-17 22:09:48,012 WARN org.apache.hadoop.hdfs.server.blockmanagement.HeartbeatManager: heartbeat expired for datanode 172.18.0.5:9866

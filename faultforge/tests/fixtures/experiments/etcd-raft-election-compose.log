@@ -1,0 +1,4 @@
+etcd0  | {"level":"info","ts":"2026-05-17T22:08:47.112465Z","caller":"etcdserver/server.go:892","msg":"starting etcd server"}
+etcd1  | {"level":"warn","ts":"2026-05-17T22:09:47.212465Z","caller":"rafthttp/stream.go:274","msg":"lost TCP streaming connection with remote peer","stream-writer-type":"stream MsgApp v2","remote-peer-id":"2c6c7b8d0d0933f7"}
+etcd1  | {"level":"info","ts":"2026-05-17T22:09:48.012465Z","caller":"raft/raft.go:987","msg":"raft: 8e9e05c52164694d elected leader 8e9e05c52164694d at term 5"}
+etcd1  | {"level":"info","ts":"2026-05-17T22:09:48.112465Z","caller":"etcdserver/server.go:2025","msg":"leader changed","leader-id":"8e9e05c52164694d","current-leader":"8e9e05c52164694d"}

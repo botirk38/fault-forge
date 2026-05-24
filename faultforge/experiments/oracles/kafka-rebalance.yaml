@@ -1,0 +1,27 @@
+issue:
+  id: "KAFKA-REBALANCE"
+  system: "kafka"
+  title: "Slow broker causes consumer group rebalance and disruption"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "Disconnected from node"
+    - file: compose
+      regex: "Disconnecting from node"
+    - file: compose
+      regex: "NotLeaderOrFollower"
+    - file: compose
+      regex: "GroupCoordinator.*rebalance"
+    - file: compose
+      regex: "RequestTimedOut"
+    - file: compose
+      regex: "Unable to send a heartbeat"
+    - file: compose
+      regex: "request timeout"

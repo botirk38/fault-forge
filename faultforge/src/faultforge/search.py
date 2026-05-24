@@ -97,6 +97,9 @@ class SearchConfig:
     strategy: SearchStrategy = EXHAUSTIVE_GRID
     strategy_seed: int | None = None
     oracle: Oracle | None = None
+    nw_flaky_pcts: list[float] = field(default_factory=list)
+    nw_severity_overrides: list[str] = field(default_factory=list)
+    fs_severity_overrides: list[str] = field(default_factory=list)
 
     def _single_fault_candidates(self) -> list[SlowFault]:
         faults: list[SlowFault] = []
@@ -107,25 +110,35 @@ class SearchConfig:
             self.durations_s,
         ):
             if fault_model == "nw":
-                for delay_ms in self.magnitudes_ms:
+                if self.nw_severity_overrides:
+                    severities = self.nw_severity_overrides
+                else:
+                    severities = [f"slow-{ms}ms" for ms in self.magnitudes_ms]
+                    for pct in self.nw_flaky_pcts:
+                        severities.append(f"flaky-p{pct}")
+                for sev in severities:
                     faults.append(
                         SlowFault(
                             fault_type="nw",
                             location=node,
                             duration_s=int(duration_s),
-                            severity=f"slow-{delay_ms}ms",
+                            severity=sev,
                             start_s=int(start_s),
                             if_restart=False,
                         )
                     )
             elif fault_model == "fs":
-                for delay_us in self.magnitudes_ms:
+                if self.fs_severity_overrides:
+                    severities = self.fs_severity_overrides
+                else:
+                    severities = [f"slow-{us}us" for us in self.magnitudes_ms]
+                for sev in severities:
                     faults.append(
                         SlowFault(
                             fault_type="fs",
                             location=node,
                             duration_s=int(duration_s),
-                            severity=f"slow-{delay_us}us",
+                            severity=sev,
                             start_s=int(start_s),
                             if_restart=False,
                         )
@@ -232,7 +245,7 @@ class Searcher:
 
             if oracle is not None and trial_result.artifacts:
                 verdict = oracle.evaluate(artifacts=trial_result.artifacts)
-                symptom_score = 1.0 if verdict.reproduced else 0.0
+                symptom_score = verdict.score
                 oracle_success = verdict.reproduced
 
             results.append(

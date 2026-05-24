@@ -1,0 +1,21 @@
+issue:
+  id: "KAFKA-UNDER-REPLICATED"
+  system: "kafka"
+  title: "Under-replicated partitions from slow disk on broker"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "under-replicated"
+    - file: compose
+      regex: "ISR.*shrunk"
+    - file: compose
+      regex: "replica.*lag"
+    - file: compose
+      regex: "Log.*flush.*took"

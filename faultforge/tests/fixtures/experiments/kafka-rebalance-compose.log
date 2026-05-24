@@ -1,0 +1,5 @@
+kafka1 | [2026-05-17 22:08:47,112] INFO [KafkaServer id=1] started (kafka.server.KafkaServer)
+kafka1 | [2026-05-17 22:09:47,112] WARN [ReplicaFetcher replicaId=2] Disconnected from node 1 due to timeout (org.apache.kafka.clients.NetworkClient)
+kafka1 | [2026-05-17 22:09:47,312] WARN [GroupCoordinator 1] Preparing to rebalance group test-consumer-group in state PreparingRebalance (kafka.coordinator.group.GroupCoordinator)
+kafka1 | [2026-05-17 22:09:48,112] ERROR [ReplicaManager broker=1] Error processing fetch with correlation id 12345: {test-topic-0=NOT_LEADER_OR_FOLLOWER} (kafka.server.ReplicaManager)
+kafka1 | [2026-05-17 22:09:48,212] WARN [Controller id=1] NotLeaderOrFollower error for partition test-topic-0 (kafka.controller.KafkaController)

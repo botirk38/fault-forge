@@ -1,0 +1,61 @@
+name: etcd-danger-zone
+
+runs:
+  - name: etcd-nw-leader-ycsb
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-leader-lease.yaml
+    issue_id: "ETCD-LEADER-LEASE"
+    nodes: ["leader"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 2, 5, 10, 20, 50, 100, 200, 500]
+    start_times_s: [0, 10, 30, 60]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 200
+    strategy: shuffled
+    seed: 42
+
+  - name: etcd-nw-follower-ycsb
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-raft-election.yaml
+    issue_id: "ETCD-RAFT-ELECTION"
+    nodes: ["follower"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 5, 10, 50, 100, 500, 1000]
+    start_times_s: [0, 10, 30]
+    durations_s: [30, 60]
+    max_faults_per_trial: 1
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: etcd-fs-leader-ycsb
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-slow-apply.yaml
+    issue_id: "ETCD-SLOW-APPLY"
+    nodes: ["leader"]
+    fault_models: ["fs"]
+    magnitudes_ms: [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+    start_times_s: [0, 10, 30, 60]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 200
+    strategy: shuffled
+    seed: 42
+
+  - name: etcd-nw-leader-official-lease
+    system: etcd
+    benchmark: etcd-official
+    oracle: experiments/oracles/etcd-leader-lease.yaml
+    issue_id: "ETCD-LEADER-LEASE"
+    nodes: ["leader"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 5, 10, 50, 100]
+    start_times_s: [0, 30]
+    durations_s: [60, 120]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: exhaustive

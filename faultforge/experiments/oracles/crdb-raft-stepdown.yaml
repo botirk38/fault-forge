@@ -1,0 +1,21 @@
+issue:
+  id: "CRDB-RAFT-STEPDOWN"
+  system: "crdb"
+  title: "Raft leader step-down under network delay causes lease transfer failures"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "raft.*stepped down"
+    - file: compose
+      regex: "not leaseholder"
+    - file: compose
+      regex: "lease transfer failed"
+    - file: compose
+      regex: "range.*unavailable"

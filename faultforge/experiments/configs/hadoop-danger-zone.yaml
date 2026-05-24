@@ -1,0 +1,61 @@
+name: hadoop-danger-zone
+
+runs:
+  - name: hadoop-nw-namenode-mrbench
+    system: hadoop
+    benchmark: mrbench
+    oracle: experiments/oracles/hadoop-limplock.yaml
+    issue_id: "HADOOP-LIMPLOCK"
+    nodes: ["namenode"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 5, 10, 50, 100, 200, 500]
+    start_times_s: [0, 10, 30]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 150
+    strategy: shuffled
+    seed: 42
+
+  - name: hadoop-nw-datanode-mrbench
+    system: hadoop
+    benchmark: mrbench
+    oracle: experiments/oracles/hadoop-speculative.yaml
+    issue_id: "HADOOP-SPECULATIVE"
+    nodes: ["datanode"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 10, 50, 100, 500]
+    start_times_s: [0, 10, 30]
+    durations_s: [30, 60]
+    max_faults_per_trial: 1
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: hadoop-fs-namenode-mrbench
+    system: hadoop
+    benchmark: mrbench
+    oracle: experiments/oracles/hadoop-limplock.yaml
+    issue_id: "HADOOP-LIMPLOCK"
+    nodes: ["namenode"]
+    fault_models: ["fs"]
+    magnitudes_ms: [1000, 10000, 100000, 1000000]
+    start_times_s: [0, 10, 30]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: hadoop-nw-datanode-terasort
+    system: hadoop
+    benchmark: terasort
+    oracle: experiments/oracles/hadoop-speculative.yaml
+    issue_id: "HADOOP-SPECULATIVE"
+    nodes: ["datanode"]
+    fault_models: ["nw"]
+    magnitudes_ms: [10, 50, 100, 500]
+    start_times_s: [10, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: exhaustive

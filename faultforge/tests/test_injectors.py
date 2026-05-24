@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from faultforge.injectors.network import NetworkFaultInjector
-from faultforge.injectors.resource import ResourceFaultInjector
-from faultforge.injectors.process import ProcessFaultInjector
 from faultforge.injectors.filesystem import FilesystemFaultInjector
+from faultforge.injectors.network import NetworkFaultInjector
+from faultforge.injectors.process import ProcessFaultInjector
 from faultforge.injectors.registry import InjectorRegistry
+from faultforge.injectors.resource import ResourceFaultInjector
 
 
 class TestNetworkFaultInjector:

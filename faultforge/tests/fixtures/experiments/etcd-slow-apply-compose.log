@@ -1,0 +1,4 @@
+etcd0  | {"level":"info","ts":"2026-05-17T22:08:47.112465Z","caller":"etcdserver/server.go:892","msg":"starting etcd server"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.212465Z","caller":"etcdserver/server.go:2139","msg":"apply request took too long","took":"1.502312874s","expected-duration":"100ms","prefix":"read-only range ","request":"key:\"/test\"","response":"range_response_count:1 size:123"}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:47.312465Z","caller":"etcdserver/server.go:2139","msg":"apply request took too long","took":"2.103s","expected-duration":"100ms","prefix":"put","request":"key:\"/benchmark/key001\""}
+etcd0  | {"level":"warn","ts":"2026-05-17T22:09:48.012465Z","caller":"etcdserver/server.go:895","msg":"server is likely overloaded"}

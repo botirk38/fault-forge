@@ -1,0 +1,4 @@
+hbase-regionserver | 2026-05-17 22:08:47,112 INFO  [regionserver/0.0.0.0:16020] regionserver.HRegionServer: RegionServer starting
+hbase-regionserver | 2026-05-17 22:09:47,112 WARN  [sync.0] wal.AsyncFSWAL: Slow sync cost: 12345ms, current pipeline: [DatanodeInfoWithStorage[172.18.0.5:9866]]
+hbase-regionserver | 2026-05-17 22:09:47,312 WARN  [regionserver/0.0.0.0:16020] regionserver.HRegionServer: Took too long processing request: 15000ms
+hbase-regionserver | 2026-05-17 22:09:48,012 ERROR [regionserver/0.0.0.0:16020] regionserver.HRegionServer: RegionServer abort: error syncing WAL

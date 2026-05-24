@@ -1,0 +1,4 @@
+datanode  | 2026-05-17 22:08:47,112 INFO org.apache.hadoop.hdfs.server.datanode.DataNode: STARTUP_MSG: starting DataNode
+namenode  | 2026-05-17 22:09:47,112 WARN org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator: Task attempt_1234_m_000001_0 timeout exceeded 600000ms, launching speculative attempt
+namenode  | 2026-05-17 22:09:47,312 WARN org.apache.hadoop.mapreduce.v2.app.job.impl.TaskAttemptImpl: Task attempt_1234_m_000001_0 failed: Container killed by framework
+namenode  | 2026-05-17 22:09:48,012 INFO org.apache.hadoop.mapreduce.v2.app.speculate.DefaultSpeculator: speculative execution launched for task_1234_m_000001
