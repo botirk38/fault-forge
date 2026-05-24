@@ -20,3 +20,7 @@ reproduced_if:
       regex: "Took too long"
     - file: compose
       regex: "slow datanode"
+    - file: compose
+      regex: "StreamSlowMonitor"
+    - file: compose
+      regex: "No servers available"

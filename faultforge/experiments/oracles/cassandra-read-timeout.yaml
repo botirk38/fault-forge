@@ -20,3 +20,7 @@ reproduced_if:
       regex: "Read.*timed out"
     - file: compose
       regex: "Slow.*total"
+    - file: compose
+      regex: "Not marking nodes down due to local pause"
+    - file: compose
+      regex: "request timed out"

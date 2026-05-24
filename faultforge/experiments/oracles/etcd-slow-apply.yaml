@@ -20,3 +20,7 @@ reproduced_if:
       regex: "slow fdatasync"
     - file: compose
       regex: "server is likely overloaded"
+    - file: compose
+      regex: "prober detected unhealthy status"
+    - file: compose
+      regex: "high clock drift"

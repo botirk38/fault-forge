@@ -22,3 +22,7 @@ reproduced_if:
       regex: "Operation timed out"
     - file: compose
       regex: "GossipStage.*endpoint.*dead"
+    - file: compose
+      regex: "Not marking nodes down due to local pause"
+    - file: compose
+      regex: "FailureDetector"

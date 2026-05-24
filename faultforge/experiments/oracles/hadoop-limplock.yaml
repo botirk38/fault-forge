@@ -20,3 +20,9 @@ reproduced_if:
       regex: "Slow.*BlockReport"
     - file: compose
       regex: "heartbeat.*expired"
+    - file: compose
+      regex: "stale.*datanode"
+    - file: compose
+      regex: "failing over"
+    - file: compose
+      regex: "lost contact"

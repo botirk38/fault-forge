@@ -20,3 +20,7 @@ reproduced_if:
       regex: "write stall"
     - file: compose
       regex: "unable to sync log files"
+    - file: compose
+      regex: "slow heartbeat"
+    - file: compose
+      regex: "ranges.unavailable"
