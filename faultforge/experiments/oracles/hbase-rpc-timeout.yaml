@@ -20,3 +20,7 @@ reproduced_if:
       regex: "connection.*reset"
     - file: compose
       regex: "RPC.*timeout"
+    - file: compose
+      regex: "Client session timed out"
+    - file: compose
+      regex: "Socket error occurred"
