@@ -2,6 +2,12 @@
 
 __version__ = "0.1.0"
 
+from faultforge.minimizer import (
+    MinimizationConfig,
+    MinimizationResult,
+    Minimizer,
+    ReductionStep,
+)
 from faultforge.trial import (
     BenchmarkConfig,
     ResourceLimit,
@@ -15,6 +21,10 @@ from faultforge.trial import (
 
 __all__ = [
     "BenchmarkConfig",
+    "MinimizationConfig",
+    "MinimizationResult",
+    "Minimizer",
+    "ReductionStep",
     "ResourceLimit",
     "SlowFault",
     "SlowFaultKind",

@@ -11,6 +11,7 @@ import click
 import yaml
 
 from faultforge import __version__
+from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
 from faultforge.runner import TrialRunner
 from faultforge.search import (
@@ -21,7 +22,14 @@ from faultforge.search import (
     Searcher,
     SearchStrategy,
 )
-from faultforge.trial import BenchmarkConfig, SlowFaultKind, SystemConfig
+from faultforge.trial import (
+    BenchmarkConfig,
+    ResourceLimit,
+    SlowFault,
+    SlowFaultKind,
+    SystemConfig,
+    Trial,
+)
 
 _STRATEGY_CHOICES: dict[str, SearchStrategy] = {
     "exhaustive": EXHAUSTIVE_GRID,
@@ -293,3 +301,139 @@ def experiment_cmd(
         status = "SYMPTOM" if r.any_symptom else "no symptom"
         click.echo(f"[{r.name}] {r.top_match.trial.trial_id if r.top_match else 'n/a'} ({status})")
     click.echo(f"{len(results)} config(s) completed", err=True)
+
+
+@main.command("minimize")
+@click.option(
+    "--oracle",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="YAML oracle definition file.",
+)
+@click.option(
+    "--trial-file",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="JSON file containing the reproducing trial definition.",
+)
+@click.option(
+    "--runtime",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Runtime config YAML file.",
+)
+@click.option("--max-iterations", type=int, default=50, show_default=True)
+@click.option("--score-threshold", type=float, default=0.5, show_default=True)
+@click.option("--magnitude-steps", type=int, default=8, show_default=True)
+@click.option("--duration-steps", type=int, default=5, show_default=True)
+@click.option("--timing-steps", type=int, default=5, show_default=True)
+@click.option(
+    "--json",
+    "output_json",
+    is_flag=True,
+    default=False,
+    help="Output result as JSON.",
+)
+def minimize_cmd(
+    oracle: Path,
+    trial_file: Path,
+    runtime: Path | None,
+    max_iterations: int,
+    score_threshold: float,
+    magnitude_steps: int,
+    duration_steps: int,
+    timing_steps: int,
+    output_json: bool,
+) -> None:
+    """Minimize a reproducing trial to its smallest fault recipe."""
+    from faultforge.runtime import load_runtime
+
+    rt = load_runtime(runtime)
+    ora = Oracle.from_file(oracle)
+
+    trial_data = json.loads(trial_file.read_text(encoding="utf-8"))
+    trial = _load_trial(trial_data)
+
+    config = MinimizationConfig(
+        max_iterations=max_iterations,
+        score_threshold=score_threshold,
+        magnitude_steps=magnitude_steps,
+        duration_steps=duration_steps,
+        timing_steps=timing_steps,
+    )
+
+    minimizer = Minimizer(runner=TrialRunner(rt), oracle=ora, config=config)
+    result = minimizer.minimize(trial)
+
+    if output_json:
+        click.echo(
+            json.dumps(
+                {
+                    "original": asdict(result.original),
+                    "minimized": asdict(result.minimized),
+                    "iterations_used": result.iterations_used,
+                    "reductions": [asdict(r) for r in result.reductions],
+                    "final_score": result.final_score,
+                },
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        click.echo(f"Original:  {len(result.original.faults)} fault(s)")
+        click.echo(f"Minimized: {len(result.minimized.faults)} fault(s)")
+        click.echo(f"Iterations: {result.iterations_used}/{max_iterations}")
+        click.echo(f"Final score: {result.final_score:.2f}")
+        click.echo()
+        if result.reductions:
+            click.echo("Reductions:")
+            for step in result.reductions:
+                click.echo(
+                    f"  [{step.dimension}] fault[{step.fault_index}]: "
+                    f"{step.before} → {step.after} (score={step.score:.2f})"
+                )
+        else:
+            click.echo("No reductions possible.")
+        click.echo()
+        click.echo("Minimal recipe faults:")
+        for i, f in enumerate(result.minimized.faults):
+            click.echo(f"  [{i}] {f.info}")
+
+
+def _load_trial(data: dict) -> Trial:
+    """Load a Trial from a JSON dict."""
+    system = SystemConfig(
+        name=data.get("system", {}).get("name", "unknown"),
+        version=data.get("system", {}).get("version"),
+        cluster_size=data.get("system", {}).get("cluster_size", 3),
+    )
+    bm_data = data.get("benchmark", {})
+    benchmark = BenchmarkConfig(
+        name=bm_data.get("name", "ycsb"),
+        exec_time_s=bm_data.get("exec_time_s", 150),
+        kwargs=bm_data.get("kwargs", {}),
+    )
+    faults = [
+        SlowFault(
+            fault_type=f["fault_type"],
+            location=f["location"],
+            duration_s=f["duration_s"],
+            severity=f["severity"],
+            start_s=f.get("start_s", 0),
+            if_restart=f.get("if_restart", False),
+        )
+        for f in data.get("faults", [])
+    ]
+    resource_data = data.get("resource", {})
+    resource = ResourceLimit(
+        cpu_limit=resource_data.get("cpu_limit", "4"),
+        mem_limit=resource_data.get("mem_limit", "32G"),
+    )
+    return Trial(
+        trial_id=data.get("trial_id", "minimize-input"),
+        system=system,
+        benchmark=benchmark,
+        faults=faults,
+        issue_id=data.get("issue_id", ""),
+        resource=resource,
+    )
