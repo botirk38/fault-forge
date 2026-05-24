@@ -14,8 +14,14 @@ reproduced_if:
     - file: compose
       regex: "Disconnected from node"
     - file: compose
+      regex: "Disconnecting from node"
+    - file: compose
       regex: "NotLeaderOrFollower"
     - file: compose
       regex: "GroupCoordinator.*rebalance"
     - file: compose
       regex: "RequestTimedOut"
+    - file: compose
+      regex: "Unable to send a heartbeat"
+    - file: compose
+      regex: "request timeout"

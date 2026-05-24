@@ -19,3 +19,7 @@ reproduced_if:
       regex: "attempt.*failed"
     - file: compose
       regex: "Container.*killed"
+    - file: compose
+      regex: "Slow BlockReceiver"
+    - file: compose
+      regex: "Slow waitForAckedSeqno"
