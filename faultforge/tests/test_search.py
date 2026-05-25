@@ -33,8 +33,8 @@ class _FakeRunner:
 class TestTrialEnumeration:
     def test_single_trial_from_grid(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["node1"],
             fault_models=["nw"],
             magnitudes_ms=[100],
@@ -55,8 +55,8 @@ class TestTrialEnumeration:
 
     def test_multiple_trials_from_grid(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["leader", "follower"],
             fault_models=["nw"],
             magnitudes_ms=[50, 100],
@@ -67,8 +67,8 @@ class TestTrialEnumeration:
 
     def test_default_grid_values(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
         )
         assert "leader" in cfg.nodes
         assert "nw" in cfg.fault_models
@@ -79,8 +79,8 @@ class TestTrialEnumeration:
 class TestSearchStrategies:
     def test_random_subset_respects_seed(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["a", "b"],
             fault_models=["nw"],
             magnitudes_ms=[10, 20],
@@ -96,8 +96,8 @@ class TestSearchStrategies:
 
     def test_shuffled_differs_from_exhaustive_prefix(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[1, 2, 3],
@@ -125,8 +125,8 @@ class TestSearchStrategies:
 class TestSearchRunner:
     def test_search_runs_all_trials_when_small_grid(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[50],
@@ -148,8 +148,8 @@ class TestSearchRunner:
 
     def test_search_respects_max_trials(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1", "n2"],
             fault_models=["nw", "fs"],
             magnitudes_ms=[50, 100],
@@ -171,8 +171,8 @@ class TestSearchRunner:
 
     def test_search_ranked_by_score(self):
         cfg = SearchConfig(
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1", "n2"],
             fault_models=["nw"],
             magnitudes_ms=[50, 100],

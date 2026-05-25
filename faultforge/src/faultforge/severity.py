@@ -17,11 +17,12 @@ _NW_FLAKY_RE = re.compile(r"flaky-p(\d+(?:\.\d+)?)$")
 _FS_DELAY_RE = re.compile(r"^(\d+)$")
 
 
-def parse_severity_ms(fault_type: SlowFaultKind, severity: str) -> float | None:
+def parse_severity_magnitude(fault_type: SlowFaultKind, severity: str) -> float | None:
     """Extract numeric magnitude from a severity string.
 
-    Returns milliseconds for network faults, raw microseconds for filesystem.
-    Returns None if the severity format is not numerically reducible.
+    Returns the value in the severity's native unit:
+    milliseconds for network faults, microseconds for filesystem.
+    Returns None if the severity is not numerically reducible (cpu, mem, process).
     """
     if fault_type == "nw":
         m = _NW_DELAY_RE.match(severity)

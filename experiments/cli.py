@@ -436,8 +436,8 @@ def live_minimize_cmd(
     import logging
     import time as _time
 
-    from faultforge.live.runner import LiveRunner
-    from faultforge.live.systems import SystemSpec
+    from live.runner import LiveRunner
+    from live.systems import SystemSpec
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 

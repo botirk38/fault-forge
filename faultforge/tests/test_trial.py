@@ -116,8 +116,8 @@ class TestTrial:
         fault = make_nw_fault(location="etcd0", severity="slow-100ms", duration_s=60)
         t = make_trial(
             trial_id="t1",
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             faults=[fault],
             issue_id="ETCD-1",
         )
@@ -133,8 +133,8 @@ class TestTrial:
         ]
         t = make_trial(
             trial_id="t2",
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             faults=faults,
         )
         assert len(t["faults"]) == 2
@@ -144,8 +144,8 @@ class TestTrial:
     def test_data_dir(self):
         t = make_trial(
             trial_id="t3",
-            system={"name": "etcd", "data_dir": "test"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb"},  # type: ignore[arg-type]
+            system={"name": "etcd", "data_dir": "test"},
+            benchmark={"name": "ycsb"},
             faults=[],
         )
         assert t["system"]["data_dir"] == "test"
@@ -156,8 +156,8 @@ class TestTrialResult:
         fault = make_nw_fault(location="etcd0", severity="slow-100ms", duration_s=60)
         trial: Trial = make_trial(
             trial_id="t1",
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             faults=[fault],
         )
         r: TrialResult = {
@@ -173,8 +173,8 @@ class TestTrialResult:
         fault = make_nw_fault(location="etcd0", severity="slow-100ms", duration_s=60)
         trial: Trial = make_trial(
             trial_id="t1",
-            system={"name": "etcd"},  # type: ignore[arg-type]
-            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             faults=[fault],
         )
         r: TrialResult = {

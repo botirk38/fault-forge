@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 
-from faultforge.injectors.base import FaultInjector
+from injectors.base import FaultInjector
 
 logger = logging.getLogger(__name__)
 

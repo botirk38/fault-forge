@@ -15,12 +15,12 @@ from __future__ import annotations
 
 import copy
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from faultforge.oracle import Oracle, OracleResult
 from faultforge.runner import RunTrial
-from faultforge.severity import build_severity, parse_severity_ms
-from faultforge.trial import Trial, fault_info
+from faultforge.severity import build_severity, parse_severity_magnitude
+from faultforge.trial import SlowFault, Trial, fault_info
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +47,14 @@ class ReductionStep:
     score: float
 
 
-@dataclass
+@dataclass(frozen=True)
 class MinimizationResult:
     """Output of the minimization process."""
 
     original: Trial
     minimized: Trial
     iterations_used: int
-    reductions: list[ReductionStep] = field(default_factory=list)
+    reductions: tuple[ReductionStep, ...] = ()
     final_score: float = 0.0
 
 
@@ -120,7 +120,7 @@ class Minimizer:
             original=original,
             minimized=trial,
             iterations_used=budget.used,
-            reductions=reductions,
+            reductions=tuple(reductions),
             final_score=final_result.score,
         )
 
@@ -172,7 +172,7 @@ class Minimizer:
         fault = trial["faults"][fault_idx]
         original_severity = fault["severity"]
 
-        current_ms = parse_severity_ms(fault["fault_type"], fault["severity"])
+        current_ms = parse_severity_magnitude(fault["fault_type"], fault["severity"])
         if current_ms is None:
             return trial, []
 
@@ -189,9 +189,8 @@ class Minimizer:
             if mid <= 0:
                 break
 
-            candidate = copy.deepcopy(trial)
             new_severity = build_severity(fault["fault_type"], mid)
-            candidate["faults"][fault_idx]["severity"] = new_severity
+            candidate = self._with_severity(trial, fault_idx, new_severity)
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -203,8 +202,7 @@ class Minimizer:
 
         reductions: list[ReductionStep] = []
         if best_severity != original_severity:
-            trial = copy.deepcopy(trial)
-            trial["faults"][fault_idx]["severity"] = best_severity
+            trial = self._with_severity(trial, fault_idx, best_severity)
             reductions.append(
                 ReductionStep(
                     dimension="magnitude",
@@ -240,8 +238,7 @@ class Minimizer:
             if mid <= 0 or mid >= hi:
                 break
 
-            candidate = copy.deepcopy(trial)
-            candidate["faults"][fault_idx]["duration_s"] = mid
+            candidate = self._with_duration(trial, fault_idx, mid)
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -253,8 +250,7 @@ class Minimizer:
 
         reductions: list[ReductionStep] = []
         if best_duration != original_duration:
-            trial = copy.deepcopy(trial)
-            trial["faults"][fault_idx]["duration_s"] = best_duration
+            trial = self._with_duration(trial, fault_idx, best_duration)
             reductions.append(
                 ReductionStep(
                     dimension="duration",
@@ -292,8 +288,7 @@ class Minimizer:
             if mid <= lo:
                 break
 
-            candidate = copy.deepcopy(trial)
-            candidate["faults"][fault_idx]["start_s"] = mid
+            candidate = self._with_start(trial, fault_idx, mid)
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -305,8 +300,7 @@ class Minimizer:
 
         reductions: list[ReductionStep] = []
         if best_start != original_start:
-            trial = copy.deepcopy(trial)
-            trial["faults"][fault_idx]["start_s"] = best_start
+            trial = self._with_start(trial, fault_idx, best_start)
             reductions.append(
                 ReductionStep(
                     dimension="timing",
@@ -322,6 +316,33 @@ class Minimizer:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _with_severity(trial: Trial, fault_idx: int, severity: str) -> Trial:
+        new_faults: list[SlowFault] = [
+            {**f, "severity": severity} if i == fault_idx else {**f}
+            for i, f in enumerate(trial["faults"])
+        ]
+        result: Trial = {**trial, "faults": new_faults}
+        return result
+
+    @staticmethod
+    def _with_duration(trial: Trial, fault_idx: int, duration_s: int) -> Trial:
+        new_faults: list[SlowFault] = [
+            {**f, "duration_s": duration_s} if i == fault_idx else {**f}
+            for i, f in enumerate(trial["faults"])
+        ]
+        result: Trial = {**trial, "faults": new_faults}
+        return result
+
+    @staticmethod
+    def _with_start(trial: Trial, fault_idx: int, start_s: int) -> Trial:
+        new_faults: list[SlowFault] = [
+            {**f, "start_s": start_s} if i == fault_idx else {**f}
+            for i, f in enumerate(trial["faults"])
+        ]
+        result: Trial = {**trial, "faults": new_faults}
+        return result
 
     def _evaluate(self, trial: Trial, budget: _Budget) -> OracleResult:
         """Run trial and evaluate oracle. Consumes one iteration from budget."""

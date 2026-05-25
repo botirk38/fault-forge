@@ -190,9 +190,9 @@ class TestOracleReproduced:
 
 class TestOracleFromFile:
     def test_load_etcd(self):
-        oracle = Oracle.from_file(Path(__file__).parent.parent / "oracles" / "etcd.yaml")
+        oracle = Oracle.from_file(Path(__file__).parent / "fixtures" / "oracles" / "etcd.yaml")
         assert oracle.configured_issue_id == "ETCD-1"
 
     def test_load_hadoop(self):
-        oracle = Oracle.from_file(Path(__file__).parent.parent / "oracles" / "hadoop.yaml")
+        oracle = Oracle.from_file(Path(__file__).parent / "fixtures" / "oracles" / "hadoop.yaml")
         assert oracle.configured_issue_id == "HADOOP-1"

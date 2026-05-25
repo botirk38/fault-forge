@@ -20,8 +20,8 @@ from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "faultforge" / "src"))
 
-from faultforge.live.runner import LiveRunner
-from faultforge.live.systems import SystemSpec
+from live.runner import LiveRunner
+from live.systems import SystemSpec
 from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
 from faultforge.trial import SlowFault, SlowFaultKind, Trial

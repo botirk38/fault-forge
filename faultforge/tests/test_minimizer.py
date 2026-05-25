@@ -7,8 +7,15 @@ import tempfile
 
 from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
-from faultforge.severity import build_severity, parse_severity_ms
-from faultforge.trial import Trial, TrialResult, load_trial, make_fault, make_trial
+from faultforge.severity import build_severity, parse_severity_magnitude
+from faultforge.trial import (
+    SlowFaultKind,
+    Trial,
+    TrialResult,
+    load_trial,
+    make_fault,
+    make_trial,
+)
 
 # --- Test helpers ---
 
@@ -35,7 +42,7 @@ class _MockRunner:
 
         if self._fail_below_ms is not None:
             for fault in trial["faults"]:
-                ms = parse_severity_ms(fault["fault_type"], fault["severity"])
+                ms = parse_severity_magnitude(fault["fault_type"], fault["severity"])
                 if ms is not None and ms < self._fail_below_ms:
                     produces_symptom = False
 
@@ -76,12 +83,12 @@ def _make_test_trial(
     severity: str = "slow-100ms",
     duration_s: int = 60,
     start_s: int = 0,
-    fault_type: str = "nw",
+    fault_type: SlowFaultKind = "nw",
     num_faults: int = 1,
 ) -> Trial:
     faults = [
         make_fault(
-            fault_type=fault_type,  # type: ignore[arg-type]
+            fault_type=fault_type,
             location=f"node{i + 1}",
             duration_s=duration_s,
             severity=severity,
@@ -91,8 +98,8 @@ def _make_test_trial(
     ]
     return make_trial(
         trial_id="test-trial",
-        system={"name": "etcd"},  # type: ignore[arg-type]
-        benchmark={"name": "ycsb", "exec_time_s": 150},  # type: ignore[arg-type]
+        system={"name": "etcd"},
+        benchmark={"name": "ycsb", "exec_time_s": 150},
         faults=faults,
         issue_id="TEST-001",
     )
@@ -103,34 +110,34 @@ def _make_test_trial(
 
 class TestSeverityParsing:
     def test_parse_nw_ms(self):
-        assert parse_severity_ms("nw", "slow-100ms") == 100.0
+        assert parse_severity_magnitude("nw", "slow-100ms") == 100.0
 
     def test_parse_nw_us(self):
-        assert parse_severity_ms("nw", "slow-500us") == 0.5
+        assert parse_severity_magnitude("nw", "slow-500us") == 0.5
 
     def test_parse_nw_s(self):
-        assert parse_severity_ms("nw", "slow-2s") == 2000.0
+        assert parse_severity_magnitude("nw", "slow-2s") == 2000.0
 
     def test_parse_nw_flaky(self):
-        assert parse_severity_ms("nw", "flaky-p10") == 10.0
+        assert parse_severity_magnitude("nw", "flaky-p10") == 10.0
 
     def test_parse_nw_flaky_decimal(self):
-        assert parse_severity_ms("nw", "flaky-p0.5") == 0.5
+        assert parse_severity_magnitude("nw", "flaky-p0.5") == 0.5
 
     def test_parse_fs(self):
-        assert parse_severity_ms("fs", "100000") == 100000.0
+        assert parse_severity_magnitude("fs", "100000") == 100000.0
 
     def test_parse_cpu_returns_none(self):
-        assert parse_severity_ms("cpu", "cpus-0.5") is None
+        assert parse_severity_magnitude("cpu", "cpus-0.5") is None
 
     def test_parse_mem_returns_none(self):
-        assert parse_severity_ms("mem", "memory-512m") is None
+        assert parse_severity_magnitude("mem", "memory-512m") is None
 
     def test_parse_process_returns_none(self):
-        assert parse_severity_ms("process", "restart") is None
+        assert parse_severity_magnitude("process", "restart") is None
 
     def test_parse_invalid_nw(self):
-        assert parse_severity_ms("nw", "partition") is None
+        assert parse_severity_magnitude("nw", "partition") is None
 
 
 class TestSeverityBuilding:
@@ -151,19 +158,19 @@ class TestSeverityBuilding:
 
     def test_roundtrip_nw_100ms(self):
         sev = "slow-100ms"
-        ms = parse_severity_ms("nw", sev)
+        ms = parse_severity_magnitude("nw", sev)
         assert ms is not None
         assert build_severity("nw", ms) == sev
 
     def test_roundtrip_nw_1s(self):
         sev = "slow-1s"
-        ms = parse_severity_ms("nw", sev)
+        ms = parse_severity_magnitude("nw", sev)
         assert ms is not None
         assert build_severity("nw", ms) == sev
 
     def test_roundtrip_fs(self):
         sev = "100000"
-        ms = parse_severity_ms("fs", sev)
+        ms = parse_severity_magnitude("fs", sev)
         assert ms is not None
         assert build_severity("fs", ms) == sev
 
@@ -181,7 +188,7 @@ class TestMinimizerBasic:
         result = minimizer.minimize(trial)
 
         assert result.iterations_used == 1
-        assert result.reductions == []
+        assert result.reductions == ()
         assert result.final_score == 0.0
         assert result.minimized["faults"][0]["severity"] == "slow-100ms"
 
@@ -255,7 +262,7 @@ class TestMagnitudeReduction:
 
         mag_reductions = [r for r in result.reductions if r.dimension == "magnitude"]
         assert len(mag_reductions) == 1
-        final_ms = parse_severity_ms("nw", result.minimized["faults"][0]["severity"])
+        final_ms = parse_severity_magnitude("nw", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms < 100.0
         assert final_ms >= 20.0
@@ -272,7 +279,7 @@ class TestMagnitudeReduction:
 
         result = minimizer.minimize(trial)
 
-        final_ms = parse_severity_ms("nw", result.minimized["faults"][0]["severity"])
+        final_ms = parse_severity_magnitude("nw", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms >= 95.0
 
@@ -386,7 +393,7 @@ class TestFullMinimization:
 
         assert len(result.minimized["faults"]) < 3
         for f in result.minimized["faults"]:
-            ms = parse_severity_ms("nw", f["severity"])
+            ms = parse_severity_magnitude("nw", f["severity"])
             assert ms is not None
             assert ms < 100.0
 
@@ -417,7 +424,7 @@ class TestMinimizationResult:
 
         mag_reductions = [r for r in result.reductions if r.dimension == "magnitude"]
         assert len(mag_reductions) == 1
-        final_ms = parse_severity_ms("fs", result.minimized["faults"][0]["severity"])
+        final_ms = parse_severity_magnitude("fs", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms < 100000.0
         assert final_ms >= 20000.0

@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 import yaml
 from pydantic import BaseModel, Field
@@ -52,7 +51,7 @@ class OracleResult(BaseModel):
     reproduced: bool
     score: float = 0.0
     matched_signals: list[OracleMatch] = Field(default_factory=list)
-    details: dict[str, Any] = Field(default_factory=dict)
+    details: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
 
 class Oracle:

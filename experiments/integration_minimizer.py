@@ -23,12 +23,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from faultforge.minimizer import (
-    MinimizationConfig,
-    Minimizer,
-    parse_severity_ms,
-)
+from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
+from faultforge.severity import parse_severity_magnitude
 from faultforge.trial import BenchmarkConfig, SlowFault, SystemConfig, Trial, TrialResult
 
 
@@ -124,11 +121,11 @@ class BaseRunner:
 
     def inject_fault(self, container: str, severity: str, fault_type: str):
         if fault_type == "nw":
-            ms = parse_severity_ms("nw", severity)
+            ms = parse_severity_magnitude("nw", severity)
             if ms:
                 inject_nw_delay(container, int(ms))
         elif fault_type == "fs":
-            us = parse_severity_ms("fs", severity)
+            us = parse_severity_magnitude("fs", severity)
             if us:
                 inject_fs_delay(container, int(us))
 
@@ -479,8 +476,8 @@ def run_single_experiment(
 
     orig_severity = result.original.faults[0].severity
     min_severity = result.minimized.faults[0].severity if result.minimized.faults else orig_severity
-    orig_ms = parse_severity_ms(fault_type, orig_severity) or 0
-    min_ms = parse_severity_ms(fault_type, min_severity) or orig_ms
+    orig_ms = parse_severity_magnitude(fault_type, orig_severity) or 0
+    min_ms = parse_severity_magnitude(fault_type, min_severity) or orig_ms
     sev_reduction = (1 - min_ms / orig_ms) * 100 if orig_ms > 0 else 0
     dur_reduction = (
         (1 - result.minimized.faults[0].duration_s / result.original.faults[0].duration_s) * 100
@@ -547,8 +544,8 @@ def run_multi_fault_experiment(runner, oracle_file: str, system: str) -> Experim
         return None
 
     min_severity = result.minimized.faults[0].severity if result.minimized.faults else "N/A"
-    orig_ms = parse_severity_ms("nw", "slow-3000ms") or 3000
-    min_ms = parse_severity_ms("nw", min_severity) or orig_ms
+    orig_ms = parse_severity_magnitude("nw", "slow-3000ms") or 3000
+    min_ms = parse_severity_magnitude("nw", min_severity) or orig_ms
     sev_reduction = (1 - min_ms / orig_ms) * 100
 
     print(f"  Score: {result.final_score:.2f} | Iters: {result.iterations_used}")

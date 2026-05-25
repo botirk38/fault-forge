@@ -6,7 +6,6 @@ JSON serialization is trivial: json.loads() produces them directly.
 
 from __future__ import annotations
 
-import json
 from typing import Literal, NotRequired, TypedDict, cast
 
 type SlowFaultKind = Literal["nw", "fs", "cpu", "mem", "process", "none"]
@@ -201,165 +200,7 @@ def make_result(
 
 
 # ---------------------------------------------------------------------------
-# Benchmark presets
-# ---------------------------------------------------------------------------
-
-
-def bench_ycsb(
-    workload: str = "mixed",
-    exec_time_s: int = 150,
-    recordcount: str = "10000",
-    operationcount: str = "500000000",
-    **extra: str | int,
-) -> BenchmarkConfig:
-    return {
-        "name": "ycsb",
-        "exec_time_s": exec_time_s,
-        "kwargs": {
-            "workload": workload,
-            "recordcount": recordcount,
-            "operationcount": operationcount,
-            **extra,
-        },
-    }
-
-
-def bench_mrbench(
-    exec_time_s: int = 150,
-    num_iter: int = 10,
-    num_reduces: str = "3",
-) -> BenchmarkConfig:
-    return {
-        "name": "mrbench",
-        "exec_time_s": exec_time_s,
-        "kwargs": {"num_iter": num_iter, "num_reduces": num_reduces},
-    }
-
-
-def bench_terasort(
-    exec_time_s: int = 150,
-    num_rows: str = "10737418",
-    input_dir: str = "/input",
-    output_dir: str = "/output",
-) -> BenchmarkConfig:
-    return {
-        "name": "terasort",
-        "exec_time_s": exec_time_s,
-        "kwargs": {
-            "num_of_100_byte_rows": num_rows,
-            "input_dir": input_dir,
-            "output_dir": output_dir,
-        },
-    }
-
-
-def bench_perf_test(
-    exec_time_s: int = 150,
-    replication_factor: str = "3",
-    topic_partition: str = "10",
-    throughput_upper_bound: int = 10000,
-    num_msg: int = 14000000,
-) -> BenchmarkConfig:
-    return {
-        "name": "perf_test",
-        "exec_time_s": exec_time_s,
-        "kwargs": {
-            "replication_factor": replication_factor,
-            "topic_partition": topic_partition,
-            "throughput_upper_bound": throughput_upper_bound,
-            "num_msg": num_msg,
-        },
-    }
-
-
-def bench_openmsg(
-    exec_time_s: int = 150,
-    driver: str = "kafka-latency",
-    workload_file: str = "simple-workload",
-) -> BenchmarkConfig:
-    return {
-        "name": "openmsg",
-        "exec_time_s": exec_time_s,
-        "kwargs": {"driver": driver, "workload_file": workload_file},
-    }
-
-
-def bench_sysbench(
-    exec_time_s: int = 150,
-    lua_scheme: str = "oltp_write_only",
-    table_size: int = 10000,
-    num_table: int = 1,
-    num_thread: int = 1,
-    report_interval: int = 1,
-) -> BenchmarkConfig:
-    return {
-        "name": "sysbench",
-        "exec_time_s": exec_time_s,
-        "kwargs": {
-            "lua_scheme": lua_scheme,
-            "table_size": table_size,
-            "num_table": num_table,
-            "num_thread": num_thread,
-            "report_interval": report_interval,
-        },
-    }
-
-
-def bench_etcd_official(
-    workload: str = "lease-keepalive",
-    total: int = 800000,
-    max_execution_time: int = 600,
-    isolation: str = "r",
-    stm_locker: str = "stm",
-    num_watchers: int = 1000000,
-) -> BenchmarkConfig:
-    return {
-        "name": "etcd-official",
-        "exec_time_s": max_execution_time,
-        "kwargs": {
-            "workload": workload,
-            "total": total,
-            "isolation": isolation,
-            "stm_locker": stm_locker,
-            "num_watchers": num_watchers,
-        },
-    }
-
-
-def bench_depfast(
-    exec_time_s: int = 150,
-    concurrency: int = 100,
-    scheme: str = "fpga_raft",
-    nclient: int = 1,
-) -> BenchmarkConfig:
-    return {
-        "name": "depfast",
-        "exec_time_s": exec_time_s,
-        "kwargs": {"concurrency": concurrency, "scheme": scheme, "nclient": nclient},
-    }
-
-
-def bench_copilot(
-    exec_time_s: int = 150,
-    concurrency: int = 10,
-    scheme: str = "copilot",
-    nclient: int = 1,
-    trim_ratio: str = "0",
-) -> BenchmarkConfig:
-    return {
-        "name": "copilot",
-        "exec_time_s": exec_time_s,
-        "kwargs": {
-            "concurrency": concurrency,
-            "scheme": scheme,
-            "nclient": nclient,
-            "trim_ratio": trim_ratio,
-        },
-    }
-
-
-# ---------------------------------------------------------------------------
-# Computed helpers (replacements for former @property methods)
+# Computed helpers
 # ---------------------------------------------------------------------------
 
 
@@ -380,11 +221,6 @@ def fault_info(fault: SlowFault) -> str:
         f"{prefix}{fault['fault_type']}-{fault['severity']}"
         f"-dur{fault['duration_s']}-{fault['start_s']}-{end}"
     )
-
-
-def fault_get_info(fault: SlowFault) -> str:
-    """JSON representation of fault."""
-    return json.dumps(fault, indent=4)
 
 
 # ---------------------------------------------------------------------------
