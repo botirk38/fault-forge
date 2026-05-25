@@ -1,0 +1,42 @@
+name: redis
+image: redis:7.2
+cluster_size: 6
+startup_wait_s: 5
+post_inject_wait_s: 15
+node_map:
+  node1: redis1
+  node2: redis2
+  node3: redis3
+  master1: redis1
+  master2: redis2
+  replica1: redis4
+start_commands:
+  - >-
+    docker run -d --name redis1 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+  - >-
+    docker run -d --name redis2 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+  - >-
+    docker run -d --name redis3 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+  - >-
+    docker run -d --name redis4 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+  - >-
+    docker run -d --name redis5 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+  - >-
+    docker run -d --name redis6 --net {network} {image}
+    redis-server --cluster-enabled yes
+    --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
+init_command: __redis_cluster_create__
+workload_command: docker exec redis2 redis-cli cluster nodes 2>&1
+stop_commands:
+  - docker rm -f redis1 redis2 redis3 redis4 redis5 redis6
+  - docker network rm {network}

@@ -1,0 +1,23 @@
+issue:
+  id: "TIKV-SLOW-STORE"
+  system: "tikv"
+  title: "Slow store detection and leader eviction (tikv/pd#9359)"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "broadcasting unreachable"
+    - file: compose
+      regex: "changed from the leader.*to follower"
+    - file: compose
+      regex: "slow score"
+    - file: compose
+      regex: "store slow"
+    - file: compose
+      regex: "raftstore is busy"

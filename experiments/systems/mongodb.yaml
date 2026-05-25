@@ -1,0 +1,24 @@
+name: mongodb
+image: mongo:7.0
+cluster_size: 3
+startup_wait_s: 15
+post_inject_wait_s: 15
+node_map:
+  node1: mongo1
+  node2: mongo2
+  node3: mongo3
+  primary: mongo1
+  secondary: mongo2
+start_commands:
+  - docker run -d --name mongo1 --net {network} {image} mongod --replSet rs0 --bind_ip_all
+  - docker run -d --name mongo2 --net {network} {image} mongod --replSet rs0 --bind_ip_all
+  - docker run -d --name mongo3 --net {network} {image} mongod --replSet rs0 --bind_ip_all
+init_command: >-
+  docker exec mongo1 mongosh --eval
+  "rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo1:27017'},{_id:1,host:'mongo2:27017'},{_id:2,host:'mongo3:27017'}]})"
+workload_command: >-
+  docker exec mongo1 mongosh --eval
+  'db.test.insertMany(Array.from({length:50},(_,i)=>({x:i})))' 2>&1
+stop_commands:
+  - docker rm -f mongo1 mongo2 mongo3
+  - docker network rm {network}

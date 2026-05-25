@@ -1,0 +1,51 @@
+name: kafka
+image: apache/kafka:3.7.0
+cluster_size: 3
+startup_wait_s: 15
+post_inject_wait_s: 12
+node_map:
+  node1: kafka1
+  node2: kafka2
+  node3: kafka3
+  broker1: kafka1
+  broker2: kafka2
+start_commands:
+  - >-
+    docker run -d --name kafka1 --net {network}
+    -e KAFKA_NODE_ID=1
+    -e KAFKA_PROCESS_ROLES=broker,controller
+    -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+    -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+    -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    -e KAFKA_CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
+    {image}
+  - >-
+    docker run -d --name kafka2 --net {network}
+    -e KAFKA_NODE_ID=2
+    -e KAFKA_PROCESS_ROLES=broker,controller
+    -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+    -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+    -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    -e KAFKA_CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
+    {image}
+  - >-
+    docker run -d --name kafka3 --net {network}
+    -e KAFKA_NODE_ID=3
+    -e KAFKA_PROCESS_ROLES=broker,controller
+    -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+    -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka1:9093,2@kafka2:9093,3@kafka3:9093
+    -e KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+    -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+    -e KAFKA_CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk
+    {image}
+workload_command: >-
+  docker exec kafka1 /opt/kafka/bin/kafka-topics.sh
+  --create --topic test --partitions 3 --replication-factor 3
+  --bootstrap-server localhost:9092 2>&1 || true;
+  docker exec kafka1 /opt/kafka/bin/kafka-topics.sh
+  --describe --topic test --bootstrap-server localhost:9092 2>&1
+stop_commands:
+  - docker rm -f kafka1 kafka2 kafka3
+  - docker network rm {network}

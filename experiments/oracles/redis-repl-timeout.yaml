@@ -1,0 +1,23 @@
+issue:
+  id: "REDIS-REPL-TIMEOUT"
+  system: "redis"
+  title: "Redis replication link timeout under slow network"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "Connection with (master|replica) lost"
+    - file: compose
+      regex: "MASTER timeout"
+    - file: compose
+      regex: "link with MASTER is down"
+    - file: compose
+      regex: "Disconnecting timedout (master|replica)"
+    - file: compose
+      regex: "repl_backlog_active:0"

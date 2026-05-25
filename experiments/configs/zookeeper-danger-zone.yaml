@@ -1,0 +1,47 @@
+name: zookeeper-danger-zone
+
+runs:
+  - name: zk-nw-leader-election
+    system: zookeeper
+    benchmark: ycsb
+    oracle: experiments/oracles/zk-leader-election.yaml
+    issue_id: "ZK-LEADER-ELECTION"
+    nodes: ["leader"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 2, 5, 10, 20, 50, 100, 200, 500]
+    start_times_s: [0, 10, 30, 60]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 200
+    strategy: shuffled
+    seed: 42
+
+  - name: zk-nw-follower-election
+    system: zookeeper
+    benchmark: ycsb
+    oracle: experiments/oracles/zk-leader-election.yaml
+    issue_id: "ZK-LEADER-ELECTION"
+    nodes: ["follower"]
+    fault_models: ["nw"]
+    magnitudes_ms: [5, 10, 50, 100, 500, 1000]
+    start_times_s: [0, 10, 30]
+    durations_s: [30, 60]
+    max_faults_per_trial: 1
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: zk-fs-leader-acl
+    system: zookeeper
+    benchmark: ycsb
+    oracle: experiments/oracles/zk-acl-hang.yaml
+    issue_id: "ZK-ACL-HANG"
+    nodes: ["leader"]
+    fault_models: ["fs"]
+    magnitudes_ms: [1000, 5000, 10000, 50000, 100000, 500000]
+    start_times_s: [0, 10, 30, 60]
+    durations_s: [30, 60, 120]
+    max_faults_per_trial: 1
+    max_trials: 200
+    strategy: shuffled
+    seed: 42

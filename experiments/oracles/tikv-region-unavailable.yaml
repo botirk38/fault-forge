@@ -1,0 +1,23 @@
+issue:
+  id: "TIKV-REGION-UNAVAIL"
+  system: "tikv"
+  title: "Region unavailable under network delay (tikv#12855)"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "broadcasting unreachable"
+    - file: compose
+      regex: "became leader at term"
+    - file: compose
+      regex: "region.*not available"
+    - file: compose
+      regex: "server is busy"
+    - file: compose
+      regex: "propose.*timeout"

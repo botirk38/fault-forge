@@ -1,0 +1,152 @@
+name: all-systems-sweep
+
+runs:
+  - name: etcd-sweep
+    system: etcd
+    benchmark: ycsb
+    oracle: experiments/oracles/etcd-leader-lease.yaml
+    issue_id: "ETCD-LEADER-LEASE"
+    nodes: ["leader", "follower"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: cassandra-sweep
+    system: cassandra
+    benchmark: ycsb
+    oracle: experiments/oracles/cassandra-batch-throughput.yaml
+    issue_id: "CASSANDRA-18120"
+    nodes: ["cas1"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: hbase-sweep
+    system: hbase
+    benchmark: ycsb
+    oracle: experiments/oracles/hbase-slow-wal.yaml
+    issue_id: "HBASE-26347"
+    nodes: ["hbase-regionserver"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: kafka-sweep
+    system: kafka
+    benchmark: openmsg
+    oracle: experiments/oracles/kafka-rebalance.yaml
+    issue_id: "KAFKA-REBALANCE"
+    nodes: ["kafka1"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: crdb-sweep
+    system: crdb
+    benchmark: ycsb
+    oracle: experiments/oracles/crdb-disk-stall.yaml
+    issue_id: "CRDB-DISK-STALL"
+    nodes: ["roach1"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: hadoop-sweep
+    system: hadoop
+    benchmark: mrbench
+    oracle: experiments/oracles/hadoop-limplock.yaml
+    issue_id: "HADOOP-LIMPLOCK"
+    nodes: ["namenode", "datanode"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: zookeeper-sweep
+    system: zookeeper
+    benchmark: ycsb
+    oracle: experiments/oracles/zk-leader-election.yaml
+    issue_id: "ZK-LEADER-ELECTION"
+    nodes: ["leader", "follower"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: mongodb-sweep
+    system: mongodb
+    benchmark: ycsb
+    oracle: experiments/oracles/mongo-rollback.yaml
+    issue_id: "MONGO-ROLLBACK"
+    nodes: ["primary", "secondary"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: redis-sweep
+    system: redis
+    benchmark: redis-benchmark
+    oracle: experiments/oracles/redis-failover.yaml
+    issue_id: "REDIS-FAILOVER"
+    nodes: ["master1", "replica1"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 10, 100, 1000, 5000]
+    start_times_s: [0, 30]
+    durations_s: [15, 60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: tikv-sweep
+    system: tikv
+    benchmark: sysbench
+    oracle: experiments/oracles/tikv-region-unavailable.yaml
+    issue_id: "TIKV-REGION-UNAVAIL"
+    nodes: ["tikv1", "tikv2"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42

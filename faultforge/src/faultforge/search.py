@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
 from faultforge.oracle import Oracle
-from faultforge.runner import TrialRunner
+from faultforge.runner import RunTrial
 from faultforge.trial import (
     BenchmarkConfig,
     SlowFault,
@@ -17,6 +17,8 @@ from faultforge.trial import (
     SystemConfig,
     Trial,
     TrialResult,
+    make_fault,
+    make_trial,
 )
 
 logger = logging.getLogger(__name__)
@@ -100,6 +102,13 @@ class SearchConfig:
     nw_flaky_pcts: list[float] = field(default_factory=list)
     nw_severity_overrides: list[str] = field(default_factory=list)
     fs_severity_overrides: list[str] = field(default_factory=list)
+    cpu_severity_overrides: list[str] = field(
+        default_factory=lambda: ["cpus-0.25", "cpus-0.5", "cpus-1.0"]
+    )
+    mem_severity_overrides: list[str] = field(
+        default_factory=lambda: ["memory-256m", "memory-512m", "memory-1g"]
+    )
+    process_severity_overrides: list[str] = field(default_factory=lambda: ["restart", "stop"])
 
     def _single_fault_candidates(self) -> list[SlowFault]:
         faults: list[SlowFault] = []
@@ -118,76 +127,53 @@ class SearchConfig:
                         severities.append(f"flaky-p{pct}")
                 for sev in severities:
                     faults.append(
-                        SlowFault(
+                        make_fault(
                             fault_type="nw",
                             location=node,
                             duration_s=int(duration_s),
                             severity=sev,
                             start_s=int(start_s),
-                            if_restart=False,
                         )
                     )
             elif fault_model == "fs":
                 if self.fs_severity_overrides:
                     severities = self.fs_severity_overrides
                 else:
-                    severities = [f"slow-{us}us" for us in self.magnitudes_ms]
+                    severities = [str(ms * 1000) for ms in self.magnitudes_ms]
                 for sev in severities:
                     faults.append(
-                        SlowFault(
+                        make_fault(
                             fault_type="fs",
                             location=node,
                             duration_s=int(duration_s),
                             severity=sev,
                             start_s=int(start_s),
-                            if_restart=False,
                         )
                     )
-            elif fault_model == "cpu":
-                for cpus in ["0.25", "0.5", "1.0"]:
+            elif fault_model in ("cpu", "mem", "process"):
+                overrides = {
+                    "cpu": self.cpu_severity_overrides,
+                    "mem": self.mem_severity_overrides,
+                    "process": self.process_severity_overrides,
+                }[fault_model]
+                for sev in overrides:
                     faults.append(
-                        SlowFault(
-                            fault_type="cpu",
+                        make_fault(
+                            fault_type=fault_model,
                             location=node,
                             duration_s=int(duration_s),
-                            severity=f"cpus-{cpus}",
+                            severity=sev,
                             start_s=int(start_s),
-                            if_restart=False,
-                        )
-                    )
-            elif fault_model == "mem":
-                for mem in ["256m", "512m", "1g"]:
-                    faults.append(
-                        SlowFault(
-                            fault_type="mem",
-                            location=node,
-                            duration_s=int(duration_s),
-                            severity=f"memory-{mem}",
-                            start_s=int(start_s),
-                            if_restart=False,
-                        )
-                    )
-            elif fault_model == "process":
-                for action in ["restart", "stop"]:
-                    faults.append(
-                        SlowFault(
-                            fault_type="process",
-                            location=node,
-                            duration_s=int(duration_s),
-                            severity=action,
-                            start_s=int(start_s),
-                            if_restart=False,
                         )
                     )
             elif fault_model == "none":
                 faults.append(
-                    SlowFault(
+                    make_fault(
                         fault_type="none",
                         location=node,
                         duration_s=int(duration_s),
                         severity="none",
                         start_s=int(start_s),
-                        if_restart=False,
                     )
                 )
         return faults
@@ -197,15 +183,17 @@ class SearchConfig:
         issue_id: str,
         faults: list[SlowFault],
     ) -> Trial:
-        labels = "-".join(f"{f.fault_type}-{f.location}-{f.severity}" for f in faults)
-        return Trial(
+        labels = "-".join(f"{f['fault_type']}-{f['location']}-{f['severity']}" for f in faults)
+        trial = make_trial(
             trial_id=f"trial-{labels}",
-            issue_id=issue_id,
             system=self.system,
             benchmark=self.benchmark,
             faults=faults,
-            version=self.system.version,
+            issue_id=issue_id,
         )
+        if self.system.get("version"):
+            trial["version"] = self.system["version"]
+        return trial
 
     def full_grid_trials(self, *, issue_id: str = "") -> list[Trial]:
         candidates = self._single_fault_candidates()
@@ -230,7 +218,7 @@ class SearchResult:
 
 
 class Searcher:
-    def __init__(self, runner: TrialRunner) -> None:
+    def __init__(self, runner: RunTrial) -> None:
         self._runner = runner
 
     def run(self, config: SearchConfig, issue_id: str = "") -> list[SearchResult]:
@@ -243,8 +231,8 @@ class Searcher:
             symptom_score = 0.0
             oracle_success = False
 
-            if oracle is not None and trial_result.artifacts:
-                verdict = oracle.evaluate(artifacts=trial_result.artifacts)
+            if oracle is not None and trial_result.get("artifacts"):
+                verdict = oracle.evaluate(artifacts=trial_result["artifacts"])
                 symptom_score = verdict.score
                 oracle_success = verdict.reproduced
 
