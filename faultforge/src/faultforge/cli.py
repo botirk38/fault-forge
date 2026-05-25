@@ -398,3 +398,97 @@ def minimize_cmd(
         click.echo("Minimal recipe faults:")
         for i, f in enumerate(result.minimized["faults"]):
             click.echo(f"  [{i}] {fault_info(f)}")
+
+
+@main.command("live-minimize")
+@click.option(
+    "--system",
+    type=str,
+    required=True,
+    help="Target system name (etcd, zookeeper, mongodb, redis, tikv, cassandra, kafka).",
+)
+@click.option(
+    "--oracle",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="YAML oracle definition file.",
+)
+@click.option("--location", type=str, default="node1", show_default=True)
+@click.option("--fault-type", type=str, default="nw", show_default=True)
+@click.option("--initial-severity", type=str, default="slow-5s", show_default=True)
+@click.option("--initial-duration", type=int, default=30, show_default=True)
+@click.option("--max-iterations", type=int, default=30, show_default=True)
+@click.option("--log-dir", type=click.Path(path_type=Path), default=None)
+@click.option("--json", "output_json", is_flag=True, default=False)
+def live_minimize_cmd(
+    system: str,
+    oracle: Path,
+    location: str,
+    fault_type: str,
+    initial_severity: str,
+    initial_duration: int,
+    max_iterations: int,
+    log_dir: Path | None,
+    output_json: bool,
+) -> None:
+    """Run the minimizer against real Docker containers."""
+    import logging
+
+    from faultforge.live.orchestrator import run_minimization
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    result = run_minimization(
+        system=system,
+        oracle_path=oracle,
+        fault_type=fault_type,
+        location=location,
+        initial_severity=initial_severity,
+        initial_duration_s=initial_duration,
+        max_iterations=max_iterations,
+        log_dir=str(log_dir) if log_dir else None,
+    )
+
+    if output_json:
+        click.echo(
+            json.dumps(
+                {
+                    "system": result.system,
+                    "oracle_id": result.oracle_id,
+                    "initial_severity": initial_severity,
+                    "minimized_severity": (
+                        result.minimization.minimized["faults"][0]["severity"]
+                        if result.minimization.minimized["faults"]
+                        else None
+                    ),
+                    "iterations_used": result.minimization.iterations_used,
+                    "reductions": len(result.minimization.reductions),
+                    "final_score": result.minimization.final_score,
+                    "wall_time_s": result.wall_time_s,
+                    "error": result.error,
+                },
+                indent=2,
+            )
+        )
+    else:
+        click.echo(f"System: {result.system}")
+        click.echo(f"Oracle: {result.oracle_id}")
+        click.echo(f"Wall time: {result.wall_time_s:.1f}s")
+        if result.error:
+            click.echo(f"ERROR: {result.error}")
+            return
+        m = result.minimization
+        click.echo(f"Iterations: {m.iterations_used}")
+        click.echo(f"Reductions: {len(m.reductions)}")
+        click.echo(f"Final score: {m.final_score:.2f}")
+        click.echo()
+        if m.reductions:
+            click.echo("Reduction log:")
+            for step in m.reductions:
+                click.echo(
+                    f"  [{step.dimension}] fault[{step.fault_index}]: {step.before} → {step.after}"
+                )
+        click.echo()
+        click.echo("Minimal recipe:")
+        for i, f in enumerate(m.minimized["faults"]):
+            click.echo(f"  [{i}] {fault_info(f)}")
