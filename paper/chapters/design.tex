@@ -233,6 +233,60 @@ For the same budget from $S_{\max} = 10000$\,ms (Redis): precision = 39\,ms.
 This precision is a \emph{configurable} property: operators trade iterations
 for tighter bounds.
 
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  xscale=0.52, yscale=0.42,
+]
+% Axes
+\draw[->] (0,0) -- (9.5,0) node[right, font=\small] {Iteration};
+\draw[->] (0,0) -- (0,11) node[above, font=\small] {Severity};
+
+% Y-axis labels (log-like spacing mapped to linear for clarity)
+\foreach \y/\lbl in {0/0, 2/20ms, 4/100ms, 6/500ms, 8/2.5s, 10/5s} {
+  \draw (-0.15,\y) -- (0.15,\y) node[left=3pt, font=\scriptsize] {\lbl};
+}
+% X-axis labels
+\foreach \x in {1,...,8} {
+  \draw (\x,-0.15) -- (\x,0.15) node[below=2pt, font=\scriptsize] {\x};
+}
+
+% etcd convergence (boundary ~19.5ms, very low)
+% hi values: 5000, 2500, 1250, 625, 312.5, 156.3, 78.1, 39.1, 19.5
+\draw[blue, thick, mark=*,mark size=1.5pt] plot coordinates {
+  (0,10) (1,8) (2,6) (3,4) (4,3) (5,2) (6,1.2) (7,0.6) (8,0.3)
+};
+\node[blue, font=\scriptsize, right] at (8.1,0.3) {etcd};
+
+% Redis convergence (boundary ~2700ms from 10s range)
+% hi: 10000, 10000, 7500, 6250, 5000, 3750, 3125, 2812, 2700
+\draw[red, thick, mark=square*,mark size=1.5pt] plot coordinates {
+  (0,10) (1,10) (2,8.5) (3,7.5) (4,6.5) (5,5.8) (6,5.4) (7,5.2) (8,5.1)
+};
+\node[red, font=\scriptsize, right] at (8.1,5.1) {Redis};
+
+% Kafka convergence (boundary ~78ms)
+% hi: 5000, 2500, 1250, 625, 312.5, 156.3, 78.1, 78.1, 78.1
+\draw[green!60!black, thick, mark=triangle*,mark size=1.5pt] plot coordinates {
+  (0,10) (1,8) (2,6) (3,4) (4,3) (5,2) (6,1.5) (7,1.2) (8,1.1)
+};
+\node[green!60!black, font=\scriptsize, right] at (8.1,1.1) {Kafka};
+
+% Dashed line showing exponential convergence envelope
+\draw[gray, dashed, thin] plot coordinates {
+  (0,10) (1,8) (2,6) (3,4) (4,2) (5,1) (6,0.5) (7,0.25) (8,0.12)
+};
+\node[gray, font=\scriptsize, right] at (8.1,-0.3) {$S_{\max}/2^k$};
+
+\end{tikzpicture}
+\caption{Convergence of the severity binary search for three representative
+systems. The $hi$ bound (current upper bound on boundary) decreases
+exponentially. etcd and Kafka converge to the precision floor; Redis converges
+to its true boundary at 2.7\,s. The dashed line shows the theoretical
+$S_{\max}/2^k$ envelope.}
+\label{fig:convergence}
+\end{figure}
+
 \para{Monotonicity assumption} Binary search requires that the oracle response
 is monotone with severity: if $O(s) = \text{reproduced}$, then
 $\forall s' > s: O(s') = \text{reproduced}$. We validate this assumption

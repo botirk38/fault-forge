@@ -121,13 +121,6 @@ performance-related issues rather than hard crashes. Their finding that
 
 \subsection{Distributed System Testing}
 
-\para{SAMC/FlyMC} Leesatapornwongsa~\etal{}~\cite{leesatapornwongsa-samc}
-use semantic-aware model checking to explore distributed system state spaces.
-While thorough, model checking targets correctness bugs (safety violations)
-in the message-passing layer rather than performance boundaries under
-degradation.
-
-\para{CrashTuner} Lu~\etal{}~\cite{crashtuner} use static analysis to identify
-crash-sensitive code paths and inject targeted failures. Like \anduril{},
-CrashTuner targets crash/exception bugs with discrete triggers rather than
-continuous performance degradation.
+Model checking approaches (SAMC/FlyMC~\cite{leesatapornwongsa-samc}) and
+static analysis (CrashTuner~\cite{crashtuner}) target correctness bugs with
+discrete triggers rather than continuous performance degradation boundaries.

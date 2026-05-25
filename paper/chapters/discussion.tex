@@ -17,17 +17,6 @@ documentation of the resilience/detection trade-off. Currently, most systems
 ($\phi$-accrual, sliding-window variance tracking) provides 2--5$\times$
 wider jitter tolerance with comparable detection latency.
 
-\para{Monitoring granularity} Given that 19.5\,ms network delay triggers
-leader elections, production monitoring must operate at $<$10\,ms granularity
-to detect approaching danger zones. Current industry defaults (1--5\,s) are
-250--500$\times$ too coarse. We recommend:
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item P99 latency tracking at 10\,ms resolution for consensus-bearing links.
-  \item Alert on sustained P99 $>$10\,ms for Raft/ZAB clusters.
-  \item Separate monitoring tiers: consensus links (10\,ms SLO) vs.\ data
-        links (100\,ms SLO).
-\end{itemize}
-
 \subsection{CI Integration}
 \label{sec:ci-integration}
 
@@ -57,25 +46,14 @@ jobs:
 \end{lstlisting}
 
 The \texttt{--assert-boundary-above} flag causes the CI job to \emph{fail}
-if the converged boundary drops below the specified threshold, indicating a
-resilience regression. This enables:
-
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item \textbf{Regression detection}: A code change that makes etcd's
-        election timeout more sensitive (boundary drops from 19.5\,ms to 10\,ms)
-        fails CI immediately.
-  \item \textbf{Configuration validation}: Changing \texttt{heartbeat-interval}
-        from 100\,ms to 50\,ms should increase the boundary; CI verifies this.
-  \item \textbf{Version comparison}: Upgrading from etcd 3.5 to 3.6 should
-        not regress resilience boundaries.
-\end{itemize}
+if the converged boundary drops below the specified threshold, enabling
+regression detection, configuration validation, and version comparison.
 
 \subsection{Boundary Interpretation}
 \label{sec:interpretation}
 
-A key subtlety of our results requires careful interpretation. The converged
-severity from binary search is an \emph{upper bound} on the true danger zone
-boundary, not the exact boundary itself.
+The converged severity from binary search is an \emph{upper bound} on the
+true danger zone boundary, not the exact boundary itself.
 
 \para{For highly sensitive systems} (etcd, ZooKeeper, MongoDB, TiKV,
 CockroachDB): The true boundary is \emph{below} 19.5\,ms (confirmed by
@@ -85,9 +63,10 @@ the boundary from zero; it is below our precision limit.'' Increasing
 $B_{\text{mag}}$ to 16 would resolve to 0.076\,ms (76\,$\mu$s), consistent
 with \xinda{}'s findings.
 
-\para{For systems near the precision limit} (Cassandra, HBase, Kafka, Hadoop):
-The converged value approximates the true boundary within $\pm S_{\max}/2^{B_{\text{mag}}}$. Redis (2.7\,s from 10\,s range, precision 39\,ms) provides
-a tight bound.
+\para{For systems near the precision limit} (Cassandra, HBase, Kafka,
+Hadoop): The converged value approximates the true boundary within
+$\pm S_{\max}/2^{B_{\text{mag}}}$. Redis (2.7\,s from 10\,s range,
+precision 39\,ms) provides a tight bound.
 
 \para{Practical significance} For operational purposes, the precision limit
 (19.5\,ms) is sufficient to conclude ``this system is vulnerable to
@@ -100,9 +79,9 @@ any reasonable monitoring or alerting threshold.
 
 \para{Single-node injection} Our evaluation primarily targets single-node
 fault injection. Production environments may have correlated multi-node
-degradations (rack-level network issues, storage array slowdowns) that affect
-multiple nodes simultaneously. Our multi-fault experiments (Section~\ref{sec:multi-fault-eval}) partially address this, but full correlated-failure
-modeling remains future work.
+degradations (rack-level network issues, storage array slowdowns).
+Our multi-fault experiments (Section~\ref{sec:multi-fault-eval}) partially
+address this, but full correlated-failure modeling remains future work.
 
 \para{Containerized deployment} All systems run in Docker containers on a
 single host. This eliminates real network hardware effects (switch buffers,
@@ -112,30 +91,18 @@ our primary target use case.
 
 \para{Workload sensitivity} We use standard benchmarks (YCSB where applicable,
 system-specific otherwise). Production workloads may have different access
-patterns, sizes, and concurrency levels that shift fault boundaries. The
-minimal recipe should be validated against representative production workload
-profiles.
+patterns, sizes, and concurrency levels that shift fault boundaries.
 
 \para{Monotonicity violations} While we validate monotonicity empirically
 (Section~\ref{sec:monotonicity}), pathological workloads could violate it.
 Example: a system with timeout-based retries might \emph{succeed} at very high
 delay (because the retry timer has ample time to fire) but \emph{fail} at
-moderate delay (within the timeout window but insufficient for normal
-completion). We did not observe this in our evaluation but acknowledge it as a
-theoretical limitation.
+moderate delay. We did not observe this in our evaluation but acknowledge it as
+a theoretical limitation.
 
-\para{Oracle sensitivity} Our results depend on oracle quality. If an oracle
-has systematic blind spots (certain failure modes never logged), the minimizer
-may converge on a boundary for a \emph{subset} of the actual vulnerability
-surface. The oracle evaluation (Section~\ref{sec:oracle-eval}) quantifies
-this risk: 97\% recall means approximately 3\% of actual failures go
-undetected.
-
-\para{Time cost} While faster than exhaustive grid per system, \system{}'s
-17--18 trials per configuration still require significant time for full-system
-clusters (7--14 minutes per system). For organizations running many systems,
-full evaluation across all fault types takes $\sim$8 hours. This is practical
-for nightly CI but not for per-commit testing.
+\para{Oracle sensitivity} Our results depend on oracle quality. The oracle
+evaluation (Section~\ref{sec:oracle-eval}) quantifies this risk: 97\% recall
+means approximately 3\% of actual failures go undetected.
 
 \subsection{Threats to Validity}
 \label{sec:threats}
@@ -149,11 +116,17 @@ value, which always reproduces).
 
 \para{External validity} Our 10 systems span multiple architectures (Raft,
 ZAB, gossip, $\phi$-accrual, coordinated sessions) and languages (Go, Java,
-C, Rust), but may not represent all production systems. Systems with
-significantly different failure detection mechanisms (Byzantine fault
-tolerance, quorum-based) may exhibit different patterns.
+C, Rust), but may not represent all production systems.
 
 \para{Construct validity} We define ``danger zone boundary'' as the minimal
 severity that triggers oracle-detectable symptoms. This may differ from the
 minimal severity that triggers \emph{user-visible} impact (which may be higher
 due to client-side retries, load balancer failover, etc.).
+
+\subsection{Data Availability}
+
+\system{} is released as open source. All oracle specifications, system
+configurations, and experiment scripts are included in the repository.
+Raw trial logs and converged boundaries for all 50 system--fault
+configurations are available in \texttt{experiments/RESULTS.md}. We
+encourage artifact evaluation and independent reproduction.

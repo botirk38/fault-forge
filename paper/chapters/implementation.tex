@@ -5,9 +5,7 @@
 
 \system{} is implemented in approximately 3,200 lines of Python 3.12, organized
 as a \texttt{uv} package with strict type checking (\texttt{ty check}) and
-formatting enforcement (\texttt{ruff}). The implementation consists of four
-major modules: fault injection, system lifecycle management, oracle evaluation,
-and the minimizer.
+formatting enforcement (\texttt{ruff}).
 
 \subsection{Fault Injection}
 \label{sec:injection}
@@ -26,65 +24,33 @@ nsenter -t $PID -n tc qdisc replace \
 \end{lstlisting}
 
 This provides microsecond-precision delay injection without modifying container
-images or requiring Blockade infrastructure. Delay values are specified as
-continuous millisecond values (\eg{}, \texttt{slow-19.5ms}), enabling
-arbitrarily fine binary search granularity.
+images. Delay values are specified as continuous millisecond values (\eg{},
+\texttt{slow-19.5ms}), enabling arbitrarily fine binary search granularity.
 
 \para{Filesystem faults (\texttt{fs})} Simulated by injecting network delay on
-the container's storage-path traffic. In containerized deployments, I/O
-traverses overlay networks; adding delay on \texttt{eth0} within the container's
-namespace effectively simulates slow disk I/O for all storage operations. For
-higher fidelity, CharybdeFS (FUSE-based) injection is supported but requires
-additional host setup.
+the container's storage-path traffic. For higher fidelity, CharybdeFS
+(FUSE-based) injection is supported but requires additional host setup.
 
-\para{CPU faults (\texttt{cpu})} Implemented via Docker's cgroup CPU quota
-mechanism:
-\begin{lstlisting}[language=bash,caption={CPU throttling injection.},label={lst:inject-cpu}]
-docker update --cpus=${LIMIT} $CONTAINER
-\end{lstlisting}
+\para{CPU faults (\texttt{cpu})} Docker's cgroup CPU quota
+(\texttt{docker update --cpus=\$\{LIMIT\}}).
+Severity values specify the fraction of a CPU core available.
 
-Severity values (\texttt{cpus-0.25}, \texttt{cpus-0.5}, \texttt{cpus-1.0})
-specify the fraction of a CPU core available. This creates scheduling delays
-that affect heartbeat threads and consensus timers.
+\para{Memory faults (\texttt{mem})} Cgroup memory limits
+(\texttt{docker update --memory=\$\{LIMIT\}}).
+Values constrain available memory, forcing GC pressure in JVM-based systems.
 
-\para{Memory faults (\texttt{mem})} Implemented via cgroup memory limits:
-\begin{lstlisting}[language=bash,caption={Memory pressure injection.},label={lst:inject-mem}]
-docker update --memory=${LIMIT} $CONTAINER
-\end{lstlisting}
+\para{Process faults (\texttt{process})} Container restart or stop via
+\texttt{docker restart}/\texttt{docker stop}.
 
-Severity values (\texttt{memory-256m}, \texttt{memory-512m}) constrain
-available memory, forcing garbage collection pressure in JVM-based systems
-and page cache eviction in all systems.
+\subsection{System Lifecycle}
 
-\para{Process faults (\texttt{process})} Container restart or stop:
-\begin{lstlisting}[language=bash,caption={Process fault injection.},label={lst:inject-proc}]
-docker restart $CONTAINER  # or: docker stop
-\end{lstlisting}
+Each trial executes a deterministic 8-step lifecycle: network creation,
+container startup, stabilization wait (8--15\,s), fault injection, workload
+execution, post-injection wait (12--30\,s), log collection, and teardown.
+Each system is described by a YAML specification defining container image,
+cluster size, start/stop commands, and workload command.
 
-\subsection{System Lifecycle Management}
-
-Each trial execution follows a deterministic lifecycle:
-
-\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item \textbf{Network creation}: Isolated Docker network per trial.
-  \item \textbf{Container startup}: System-specific start commands from YAML spec.
-  \item \textbf{Stabilization wait}: Configurable delay for cluster formation
-        (8--15\,s depending on system).
-  \item \textbf{Fault injection}: Apply fault(s) per trial specification.
-  \item \textbf{Workload execution}: Run benchmark command, collect output.
-  \item \textbf{Post-injection wait}: Allow system reaction time (12--30\,s).
-  \item \textbf{Log collection}: Capture stdout/stderr from all containers.
-  \item \textbf{Teardown}: Remove containers and network (idempotent cleanup).
-\end{enumerate}
-
-Each system is described by a YAML specification defining: container image,
-cluster size, node-to-container mapping, start commands (with template
-variables for network name), workload command, and stop commands.
-
-\subsection{System Specifications}
-
-Table~\ref{tab:systems} lists all 10 systems evaluated, with their
-cluster configurations and primary oracle targets.
+Table~\ref{tab:systems} lists all 10 systems with their cluster configurations.
 
 \begin{table}[t]
 \centering
@@ -112,48 +78,24 @@ Hadoop & 3.3 & 3 & ZK-coordinated \\
 \subsection{Oracle Specifications}
 
 We developed 21 oracle specifications covering multiple failure modes per
-system. Each oracle targets a specific production issue category:
+system: leader election (etcd, ZK, MongoDB, TiKV, CockroachDB), failover/PFAIL
+(Redis), replication lag (Kafka, HBase), timeout cascades (Cassandra, HBase),
+and throughput collapse (Hadoop, Cassandra).
 
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item \textbf{Leader election} (etcd, ZK, MongoDB, TiKV, CockroachDB):
-        Consensus protocol disruption.
-  \item \textbf{Failover/PFAIL} (Redis): Cluster state transitions.
-  \item \textbf{Replication lag} (Kafka, HBase): Data pipeline stalls.
-  \item \textbf{Timeout cascades} (Cassandra, HBase): RPC timeout propagation.
-  \item \textbf{Throughput collapse} (Hadoop, Cassandra): Batch processing
-        degradation.
-\end{itemize}
-
-\subsection{Severity Parsing and Construction}
+\subsection{Severity Parsing}
 
 Severity strings follow type-specific formats that the minimizer parses
 into continuous numeric values for binary search:
-
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item Network: \texttt{slow-\{value\}\{unit\}} $\rightarrow$ milliseconds
-        (\eg{}, \texttt{slow-19.5ms} $= 19.5$).
-  \item CPU: \texttt{cpus-\{fraction\}} $\rightarrow$ CPU cores
-        (\eg{}, \texttt{cpus-0.25} $= 0.25$).
-  \item Memory: \texttt{memory-\{value\}\{unit\}} $\rightarrow$ bytes
-        (\eg{}, \texttt{memory-256m} $= 268435456$).
-\end{itemize}
-
-After binary search convergence, the numeric result is formatted back into
-the canonical string for human readability and reproducibility.
+Network (\texttt{slow-\{value\}\{unit\}} $\rightarrow$ ms),
+CPU (\texttt{cpus-\{fraction\}} $\rightarrow$ cores),
+Memory (\texttt{memory-\{value\}\{unit\}} $\rightarrow$ bytes).
+After convergence, the numeric result is formatted back into canonical
+strings for reproducibility.
 
 \subsection{RunTrial Protocol}
 
 The minimizer is decoupled from infrastructure through a \texttt{RunTrial}
-protocol:
-
-\begin{lstlisting}[language=Python,caption={RunTrial protocol interface.},label={lst:protocol}]
-class RunTrial(Protocol):
-    def run(self, trial: Trial) -> TrialResult:
-        """Execute trial against real infra."""
-        ...
-\end{lstlisting}
-
-This abstraction allows the same minimizer to operate with different backends:
-\texttt{LiveRunner} (Docker + nsenter, used in evaluation),
-\texttt{MockRunner} (deterministic, for unit tests), or future
+protocol (Python \texttt{Protocol} class). This abstraction allows the same
+minimizer to operate with \texttt{LiveRunner} (Docker + nsenter, used in
+evaluation), \texttt{MockRunner} (deterministic, for unit tests), or future
 \texttt{K8sRunner} (Kubernetes, for production clusters).

@@ -12,37 +12,25 @@ while progressively destabilizing system invariants. Prior work has identified
 several categories~\cite{xinda,gunawi-cbs}:
 
 \para{Network slow faults} Additional latency on network links due to
-congestion, switch buffer overflow, or NIC firmware issues. Even microsecond-scale
-delays can disrupt heartbeat-based failure detectors when they cause cumulative
-timeout expiration in consensus protocols~\cite{raft,zab}. Cloud providers
-report tail latency spikes of 1--10\,ms occurring multiple times per day on
-inter-AZ links~\cite{dean-tail-latency}.
+congestion, switch buffers, or NIC issues. Even microsecond-scale delays can
+disrupt heartbeat-based failure detectors~\cite{raft,zab}. Cloud providers
+report tail latency spikes of 1--10\,ms multiple times per day on inter-AZ
+links~\cite{dean-tail-latency}.
 
-\para{Filesystem slow faults} Increased I/O latency from disk degradation, file
-system journaling contention, or storage controller issues. These particularly
-affect write-ahead log (WAL) performance in databases. Lu~\etal{} found that
-storage-related performance bugs account for 25\% of cloud system
-issues~\cite{lu-cloud-reliability}. Modern NVMe SSDs can exhibit periodic
-latency spikes of 10--100$\times$ normal due to garbage collection and wear
-leveling~\cite{dean-tail-latency}.
+\para{Filesystem slow faults} Increased I/O latency from disk degradation or
+journaling contention, particularly affecting WAL performance.
+Storage-related performance bugs account for 25\% of cloud system
+issues~\cite{lu-cloud-reliability}.
 
-\para{CPU slow faults} Resource throttling from cgroup limits, noisy
-neighbors in multi-tenant environments, or garbage collection pauses that
-starve critical threads. Kubernetes CPU throttling affects over 60\% of
-production containers according to industry surveys~\cite{datadog-monitoring},
-creating unpredictable scheduling delays for latency-sensitive consensus
-heartbeats.
+\para{CPU slow faults} Resource throttling from cgroup limits or noisy
+neighbors that starve critical threads. Kubernetes CPU throttling affects
+over 60\% of production containers~\cite{datadog-monitoring}.
 
-\para{Memory pressure faults} Reduced available memory forcing increased
-garbage collection in JVM-based systems (Cassandra, HBase, Kafka, ZooKeeper),
-page cache eviction increasing disk I/O, or swap thrashing. These create
-cascading effects where a memory-constrained node becomes slow, triggering
-failure detection by peers.
+\para{Memory pressure faults} Reduced memory forcing GC pauses in JVM-based
+systems, page cache eviction, or swap thrashing, creating cascading slowdowns.
 
-\para{Process faults} Container or process restarts and stops that cause
-temporary unavailability. While these are detectable, the \emph{timing}
-of restart relative to in-flight operations determines whether data loss
-or corruption occurs.
+\para{Process faults} Container restarts causing temporary unavailability,
+where the \emph{timing} relative to in-flight operations determines impact.
 
 \subsection{Xinda: Exhaustive Grid Exploration}
 \label{sec:xinda-background}
@@ -89,22 +77,6 @@ information.
 efficient for systems with boundaries in the 1--100\,ms range but wasteful for
 both very sensitive systems (boundary $\ll$ 100\,$\mu$s) and very tolerant
 systems (boundary $\gg$ 1\,s).
-
-\subsection{The Anduril Approach}
-
-\anduril{}~\cite{anduril} (ATC~'25) takes a complementary approach: given a
-known bug (typically a crash/exception bug with a code-level fix), it uses
-feedback from runtime traces to guide fault injection toward reproducing the
-specific bug. \anduril{} constructs a directed acyclic graph of causal events
-and preferentially injects faults at points most likely to trigger the target
-failure path.
-
-While effective for exception bugs with discrete triggers, \anduril{}'s
-approach requires code-level instrumentation (function interception, return
-value modification) and targets single-event triggers rather than the
-\emph{sustained} performance degradation characteristic of slow faults. A
-slow fault manifests over many operations, and there is no single function call
-to intercept.
 
 \subsection{Problem Statement}
 \label{sec:problem}

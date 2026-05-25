@@ -3,57 +3,14 @@
 \label{sec:findings}
 % ===========================================================================
 
-Our evaluation reveals several findings with implications for distributed
+Our evaluation reveals cross-cutting patterns with implications for distributed
 system design, deployment, and monitoring.
 
-\subsection{Finding 1: Sub-20\,ms Danger Zones Are Universal Across Consensus}
+\subsection{Finding 1: Timeout Architecture Determines Resilience}
 
-Five of ten systems (etcd, ZooKeeper, MongoDB, TiKV, CockroachDB), all
-Raft-based or equivalent consensus protocols, trigger catastrophic leader
-elections at $\leq$19.5\,ms of network delay. The true boundary is likely
-even lower (see Section~\ref{sec:head-to-head}, boundary interpretation).
-
-This is \textbf{250$\times$ below} typical production alerting thresholds.
-Industry monitoring platforms document default alert configurations of
-1--5\,s for network latency anomalies~\cite{datadog-monitoring}: Datadog's
-default network monitor triggers at 3\,s~\cite{datadog-monitoring}, PagerDuty
-recommends 5\,s thresholds for latency alerts~\cite{pagerduty-best-practices},
-and the Google SRE book recommends alerting on ``significant'' latency
-increases typically defined as $>$1\,s~\cite{google-sre-book}.
-
-\para{Root cause} Consensus protocols use heartbeat intervals (typically
-100--500\,ms) to detect peer failure. When added delay causes heartbeat
-round-trip time to exceed the election timeout, followers initiate elections.
-The critical insight is that the \emph{added} delay compounds with existing
-network latency and processing time: even a few milliseconds of additional
-delay can tip a marginally-timed heartbeat over the election threshold during
-load spikes.
-
-\para{System-specific mechanisms}
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item \textbf{etcd 3.5.10}: Heartbeat interval 100\,ms, election timeout
-        1000\,ms (10$\times$ heartbeat). Under YCSB load, processing time
-        already consumes most of the 100\,ms budget; 19.5\,ms additional delay
-        causes missed heartbeats, accumulating to election timeout.
-  \item \textbf{ZooKeeper 3.8}: \texttt{tickTime} 2000\,ms with
-        \texttt{syncLimit}=5 ticks. Session timeouts interact with election
-        protocol; delay causes followers to enter LOOKING state.
-  \item \textbf{MongoDB 7.0}: Default \texttt{electionTimeoutMillis} 10\,s,
-        but heartbeat frequency is 2\,s. Slow heartbeat responses trigger
-        ``not primary'' cascades before the full timeout expires.
-  \item \textbf{TiKV 7.5}: PD (Placement Driver) uses store heartbeats to
-        detect slow stores. The ``slow score'' mechanism is more sensitive
-        than the raw election timeout.
-  \item \textbf{CockroachDB 23.2}: Multi-Raft with per-range leaders. Network
-        delay affects multiple ranges simultaneously, amplifying the failure
-        surface.
-\end{itemize}
-
-\subsection{Finding 2: Timeout Architecture Determines Resilience}
-
-Redis Cluster's danger zone (2.7\,s) is \textbf{138$\times$ higher} than
-consensus-based systems. This dramatic difference traces to a fundamental
-architectural choice:
+The 138$\times$ difference between Redis Cluster's danger zone (2.7\,s) and
+consensus-based systems ($\leq$19.5\,ms) traces to a fundamental architectural
+choice in failure detection:
 
 \begin{table}[t]
 \centering
@@ -79,90 +36,60 @@ with gossip & & \\
 \end{tabular}
 \end{table}
 
-\para{Heartbeat-sensitive consensus} (Raft, ZAB, Multi-Raft) ties liveness
-detection directly to the consensus protocol's heartbeat mechanism. This
-provides fast failover ($<$10\,s) but creates extreme sensitivity to
-latency perturbation.
+Heartbeat-sensitive consensus (Raft, ZAB, Multi-Raft) ties liveness
+detection directly to the heartbeat mechanism, providing fast failover
+($<$10\,s) but creating extreme sensitivity to latency perturbation.
+The $\phi$-accrual detector (Cassandra) uses statistical modeling of
+inter-arrival times, providing moderate jitter tolerance. ZK-coordinated
+sessions (HBase, Hadoop, Kafka) delegate detection to ZooKeeper session
+timeouts. Redis uses configurable \texttt{cluster-node-timeout} (default
+5\,s) requiring \emph{sustained} unreachability, deliberately trading
+detection speed for jitter tolerance.
 
-\para{$\phi$-accrual failure detector} (Cassandra) uses statistical modeling
-of inter-arrival times to adaptively threshold failure detection. This provides
-moderate jitter tolerance (39\,ms boundary) while maintaining reasonable
-detection speed.
+This taxonomy suggests a design trade-off: $\text{Detection Latency} \propto
+\text{Jitter Tolerance}$. \system{}'s minimal recipes quantify this
+trade-off precisely, enabling informed decisions about timeout configuration.
 
-\para{ZK-coordinated sessions} (HBase, Hadoop, Kafka pre-KRaft) delegate
-failure detection to ZooKeeper session timeouts (typically 30\,s). Individual
-components tolerate significant delay as long as their ZK session remains
-alive, but session expiry is catastrophic.
+\subsection{Finding 2: Fault Type Sensitivity Varies by Orders of Magnitude}
 
-\para{Explicit timeout with gossip} (Redis) uses configurable
-\texttt{cluster-node-timeout} (default 5\,s) requiring \emph{sustained}
-unreachability exceeding timeout/2 before PFAIL marking. This deliberate
-design trades detection speed for jitter tolerance.
+Across all systems, filesystem fault boundaries are 4--16$\times$ higher than
+network fault boundaries. Network heartbeats have sub-second timeouts, while
+I/O operations are expected to have variable latency and systems configure
+generous timeouts accordingly. HBase is the exception (only 2$\times$ ratio)
+because its WAL writes are in the critical path of RPC handling, directly
+delaying responses that maintain ZooKeeper sessions. CPU and memory
+boundaries follow system architecture: Golang-based systems
+(etcd, TiKV, CockroachDB) show slightly more CPU sensitivity due to goroutine
+scheduling, while JVM-based systems require more memory headroom for
+heap and GC.
 
-\para{Design implication} System designers face an inherent trade-off:
-\begin{equation}
-\text{Detection Latency} \propto \text{Jitter Tolerance}
-\end{equation}
+\subsection{Finding 3: Single-Fault Testing Is Optimistic}
 
-\system{}'s minimal recipes quantify this trade-off precisely for each system,
-enabling informed decisions about timeout configuration.
-
-\subsection{Finding 3: Filesystem Faults Are 4--16$\times$ More Tolerable}
-
-Across all systems, filesystem fault boundaries are 4--16$\times$ higher
-than network fault boundaries:
-
-\begin{center}
-\small
-\begin{tabular}{lrrl}
-\toprule
-System & NW & FS & Ratio \\
-\midrule
-etcd & 19.5\,ms & 78.1\,ms & 4$\times$ \\
-ZooKeeper & 19.5\,ms & 156.3\,ms & 8$\times$ \\
-MongoDB & 19.5\,ms & 312.5\,ms & 16$\times$ \\
-HBase & 39.1\,ms & 78.1\,ms & 2$\times$ \\
-Kafka & 78.1\,ms & 625.0\,ms & 8$\times$ \\
-\bottomrule
-\end{tabular}
-\end{center}
-
-\para{Explanation} Network heartbeats are latency-critical (sub-second
-timeouts), while I/O operations are expected to have variable latency.
-Systems configure generous I/O timeouts (seconds to minutes) because disk
-operations are inherently bursty. This creates a larger safety margin for
-filesystem degradation before it triggers system-level failures.
-
-\para{Exception: HBase} Shows only 2$\times$ ratio because its WAL
-(Write-Ahead Log) writes are in the critical path of RPC handling. Slow WAL
-fsync directly delays RPC responses, which cascades to ZooKeeper session
-maintenance.
-
-\subsection{Finding 4: Multi-Fault Boundaries Are Significantly Lower}
-
-Combined faults lower individual boundaries by mean 31.4\%
-(Section~\ref{sec:multi-fault-eval}). The most severe case (HBase nw+fs:
-50\% reduction) demonstrates that production environments (which routinely
-experience multiple simultaneous degradations) are more vulnerable than
-single-fault testing suggests.
-
-\para{Implication for CI} Regression tests based on single-fault boundaries
-may provide false confidence. We recommend testing at 70\% of the single-fault
-boundary to account for multi-fault interaction effects:
+Multi-fault combinations lower individual boundaries by mean 31.4\%
+(range 22--50\%, Section~\ref{sec:multi-fault-eval}). This has a direct CI
+implication: regression tests based on single-fault boundaries may provide
+false confidence. We recommend testing at 70\% of the single-fault boundary:
 \begin{equation}
 \text{CI threshold} = 0.7 \times \text{single-fault boundary}
 \end{equation}
 
-\subsection{Finding 5: The Minimizer Is CI-Practical}
+\subsection{Finding 4: The Minimizer Is CI-Practical}
 
-\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item Average: 17.8 iterations per system for network faults.
-  \item Wall time: 7--14 minutes per system (including full cluster lifecycle).
-  \item Total: 99 minutes for all 10 systems (one fault type).
-  \item All five fault types across 10 systems: $\sim$8 hours.
-\end{itemize}
+\system{}'s 17--18 iterations per configuration require 7--14 minutes per
+system (including full cluster lifecycle). Total wall time for all 10 systems
+under one fault type: 99 minutes. All five fault types across 10 systems:
+$\sim$8 hours. A nightly CI job produces up-to-date fault specifications in
+under one shift. Weekly runs track boundary drift across versions,
+configuration changes, and infrastructure updates.
 
-A nightly CI job running \system{} against all production systems produces
-up-to-date minimal fault specifications in under one shift. Weekly runs track
-boundary drift across versions, configuration changes, and infrastructure
-updates.
+\subsection{Finding 5: Monitoring Must Operate at ms Granularity}
+
+The sub-20\,ms danger zones for consensus systems are 250$\times$ below
+typical production alerting thresholds. Industry platforms document default
+alert configurations of 1--5\,s for network latency
+anomalies~\cite{datadog-monitoring,pagerduty-best-practices,google-sre-book}.
+This gap means slow faults in the 20\,ms--5\,s range will trigger catastrophic
+leader elections without generating any alert. We recommend P99 latency
+tracking at 10\,ms resolution for consensus-bearing links, with separate
+monitoring tiers for consensus links (10\,ms SLO) vs.\ data links (100\,ms
+SLO).

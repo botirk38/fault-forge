@@ -130,9 +130,22 @@ MongoDB, TiKV, CockroachDB), \xinda{}'s grid reports 100\,$\mu$s because
 \emph{every} grid point reproduces. This means the true boundary is $\leq$
 100\,$\mu$s. \system{} reports 19.5\,ms, which is the precision limit of 8
 binary search steps from 5000\,ms ($5000/2^8 = 19.5$). Both are upper bounds
-on the true boundary; \xinda{}'s is tighter for these systems but requires
-2$\times$ more trials and cannot adapt when the boundary is \emph{above} the
-grid.
+on the true boundary; \xinda{}'s is tighter for these highly sensitive systems
+but requires 2$\times$ more trials and cannot adapt when the boundary falls
+\emph{above} the grid.
+
+\para{When \system{} wins} \system{} provides three advantages that the
+head-to-head table alone does not capture: (1)~\textbf{Grid-independent
+discovery}: for 7 of 50 configurations, \xinda{}'s grid misses the boundary
+entirely (Table~\ref{tab:beyond-grid}), while \system{} finds it regardless
+of location; (2)~\textbf{Multi-dimensional minimization}: \system{} minimizes
+severity \emph{and} duration \emph{and} timing jointly, producing complete
+recipes rather than single-axis danger-zone maps; (3)~\textbf{CI
+actionability}: the output is a concrete executable specification
+(\texttt{--assert-boundary-above 15ms}) rather than a heat map requiring
+human interpretation. Random search is faster still but produces boundary
+estimates 10--100$\times$ above the true value (mean 523\,ms vs.\ 19.5\,ms
+for etcd), making them unsuitable for monitoring or regression testing.
 
 % -------------------------------------------------------------------
 \subsection{All Fault Types: Comprehensive Results}
@@ -171,38 +184,26 @@ Hadoop 3.3       & 312.5\,ms & 1.2\,s$\dagger$    & 0.39 cores & 1024\,MB & rest
 \end{tabular}
 \end{table*}
 
-\para{Network faults} Five Raft-based systems (etcd, ZooKeeper, MongoDB, TiKV,
-CockroachDB) converge at 19.5\,ms, which is the precision limit from 5\,s with 8
-binary search steps. Cassandra and HBase converge at 39.1\,ms (one step
-coarser due to slightly higher true boundaries). Kafka's KRaft protocol shows
-higher tolerance (78.1\,ms) due to its longer default session timeout. Hadoop
-is most tolerant (312.5\,ms) as a batch system with generous ZooKeeper session
-timeouts. Redis's 2.7\,s boundary reflects its explicit \texttt{cluster-node-timeout}.
+\para{Network faults} Five Raft-based systems converge at 19.5\,ms (precision
+limit of 8 steps from 5\,s). Cassandra/HBase at 39.1\,ms, Kafka at 78.1\,ms,
+Hadoop at 312.5\,ms, and Redis at 2.7\,s reflecting its explicit
+\texttt{cluster-node-timeout}.
 
-\para{Filesystem faults} Generally 4--16$\times$ higher thresholds than network
-faults. Filesystem operations are inherently slower than network heartbeats, so
-systems configure more generous timeouts for I/O. etcd and HBase are most
-sensitive (78.1\,ms) due to synchronous WAL writes in the critical path.
-Redis (1.5\,s) and Hadoop (1.2\,s) exceed \xinda{}'s standard filesystem grid.
+\para{Filesystem faults} Generally 4--16$\times$ higher than network
+boundaries due to more generous I/O timeouts. etcd and HBase are most
+sensitive (78.1\,ms) due to synchronous WAL writes. Redis (1.5\,s) and
+Hadoop (1.2\,s) exceed \xinda{}'s standard grid.
 
-\para{CPU faults} All systems fail under severe throttling ($<$0.4 cores), but
-the boundary varies with system architecture. Golang-based systems (etcd, TiKV,
-CockroachDB) are slightly more sensitive (0.15--0.20 cores) due to goroutine
-scheduling sensitivity. JVM-based systems (Cassandra, HBase, Kafka, ZooKeeper)
-require slightly more CPU (0.23--0.31 cores) before GC pauses trigger failure
-detection.
+\para{CPU faults} All systems fail under $<$0.4 cores. Golang-based systems
+(0.15--0.20 cores) are slightly more sensitive than JVM-based systems
+(0.23--0.31 cores) due to goroutine scheduling sensitivity.
 
-\para{Memory faults} Boundaries reflect each system's memory architecture.
-Redis (64\,MB) fails earliest because its dataset must fit in memory. etcd
-(192\,MB) has a small footprint but bbolt requires memory-mapped I/O.
-JVM-based systems need more headroom for heap + GC (256--768\,MB). Hadoop
-(1024\,MB) is most tolerant due to its designed-for-commodity-hardware
-architecture.
+\para{Memory faults} Redis (64\,MB) fails earliest (in-memory dataset).
+JVM systems need 256--768\,MB for heap/GC headroom. Hadoop is most
+tolerant (1024\,MB).
 
-\para{Process faults} All systems detect and recover from single-node restarts
-(this is their design purpose). The interesting result is that restart is
-universally detectable; the relevant metric is \emph{time to detection},
-which varies from 1\,s (Redis PFAIL) to 30\,s (Hadoop session timeout).
+\para{Process faults} All systems detect single-node restarts. Time to
+detection varies from 1\,s (Redis PFAIL) to 30\,s (Hadoop session timeout).
 
 % -------------------------------------------------------------------
 \subsection{Beyond the Grid}
@@ -225,12 +226,12 @@ configurations (Table~\ref{tab:beyond-grid}).
 Redis 7.2    & Network    & 2.7\,s   & 1\,s \\
 Redis 7.2    & Filesystem & 1.5\,s   & 1\,s \\
 Hadoop 3.3   & Filesystem & 1.2\,s   & 1\,s \\
-Kafka 3.6    & Filesystem & 625\,ms  & 500\,ms* \\
+Kafka 3.6    & Filesystem & 625\,ms  & 500\,ms$^a$ \\
 Hadoop 3.3   & Network    & 312\,ms  & --- \\
-Redis 7.2    & CPU        & 0.39     & 0.25** \\
-Hadoop 3.3   & CPU        & 0.39     & 0.25** \\
+Redis 7.2    & CPU        & 0.39     & 0.25$^b$ \\
+Hadoop 3.3   & CPU        & 0.39     & 0.25$^b$ \\
 \bottomrule
-\multicolumn{4}{@{}l}{\scriptsize *Filesystem grid uses different range. **CPU grid minimum is 0.25 cores.}
+\multicolumn{4}{@{}l}{\scriptsize $^a$Filesystem grid uses different range. $^b$CPU grid minimum is 0.25 cores.}
 \end{tabular}
 \end{table}
 
@@ -322,23 +323,13 @@ Hadoop        & 318  & 12   & 3.8\% & [303, 332] \\
 \end{tabular}
 \end{table}
 
-\para{Network faults are highly stable} Mean CV of 2.5\% across all systems.
-Raft-based systems (etcd, ZooKeeper, TiKV, CockroachDB) show zero variance;
-the binary search converges to the same 19.5\,ms boundary every time because
-the true boundary is well below this value (all severities $\geq$ 19.5\,ms
-reproduce deterministically).
-
-\para{Filesystem faults show moderate variance} (CV 5--12\%, not shown in full).
-I/O operations are inherently more variable due to page cache state, background
-flushes, and filesystem journaling timing. This higher variance is expected and
-still within acceptable bounds for practical use.
-
-\para{Non-determinism at boundaries} MongoDB and Cassandra show slight variance
-because their true boundaries are close to the convergence precision. Near the
-boundary, non-determinism in the distributed system (timing of heartbeats,
-message ordering) occasionally causes the oracle to report different results
-for the same severity. The binary search converges to slightly different points
-across runs, but the practical difference is negligible ($<$5\,ms).
+Mean CV of 2.5\% across all systems. Raft-based systems (etcd, ZooKeeper,
+TiKV, CockroachDB) show zero variance because the true boundary is well below
+the precision limit. MongoDB and Cassandra show slight variance (4--5\% CV)
+because their true boundaries are near the convergence precision, where
+distributed system non-determinism occasionally changes outcomes. Filesystem
+faults show moderate variance (CV 5--12\%, not tabulated) due to inherently
+variable I/O timing.
 
 % -------------------------------------------------------------------
 \subsection{Monotonicity Validation}
@@ -386,16 +377,10 @@ boundary is lower than 19.5\,ms). Systems where the true boundary is near the
 convergence point show a clean transition: $<$13\% reproduction below
 (attributable to non-determinism) vs.\ 100\% above.
 
-\para{Cassandra exception} Shows 97\% above-boundary (one non-reproduction in
-30 trials). This is due to the $\phi$-accrual failure detector's probabilistic
-nature: occasionally, a healthy gossip exchange occurs within the delay window,
-preventing PFAIL detection. This 3\% false-negative rate does not affect the
-minimizer's convergence (the threshold $\theta=0.5$ provides sufficient margin).
-
-\para{Conclusion} Monotonicity holds with $>$97\% fidelity across all systems.
-The rare violations occur only at the exact boundary (within 2\,ms) and are
-attributable to distributed system non-determinism rather than a failure of the
-monotonicity property.
+Cassandra's 97\% above-boundary rate is due to its probabilistic $\phi$-accrual
+detector. Overall, monotonicity holds with $>$97\% fidelity; rare violations
+occur only at the exact boundary and are attributable to distributed system
+non-determinism.
 
 % -------------------------------------------------------------------
 \subsection{Oracle Precision and Recall}
@@ -430,20 +415,9 @@ Hadoop        & 100\% & 92\% & Speculative exec sometimes not logged \\
 \end{tabular}
 \end{table}
 
-\para{High precision} (99.2\%) means the minimizer rarely converges on a
-false-positive. When the oracle says ``reproduced,'' it almost always truly
-reproduced. This is critical for minimizer correctness.
-
-\para{High recall} (97.0\%) means the minimizer rarely misses a reproducing
-trial. Missed reproductions (false negatives) cause the binary search to
-over-estimate the boundary (reporting a slightly higher severity than
-necessary). Given the 2--4\% false-negative rate, boundary estimates may be
-at most one binary search step ($\sim$2$\times$) above the true boundary in
-the worst case.
-
-\para{Oracle design guidelines} Our experience developing 21 oracles suggests:
-(1)~use multiple regex patterns per oracle (disjunction) to maximize recall,
-(2)~avoid patterns that match normal operation (\eg{}, ``election'' in etcd
-logs occurs even in healthy clusters during initial setup),
-(3)~use \texttt{invalid\_if} rules aggressively to exclude infrastructure
-failures from the oracle's decision space.
+High precision (99.2\%) ensures the minimizer rarely converges on
+false-positives. High recall (97.0\%) means boundary estimates may be at most
+one binary search step above the true boundary in the worst case. Our
+experience developing 21 oracles suggests: use multiple regex patterns
+(disjunction) for recall, avoid patterns matching normal operation, and use
+\texttt{invalid\_if} rules to exclude infrastructure failures.
