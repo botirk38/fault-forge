@@ -8,7 +8,7 @@ Validates the minimizer against real Docker containers with:
 Requires Docker and sudo for nsenter/tc injection.
 
 Usage:
-    cd faultforge && sudo $(which uv) run python tests/integration_minimizer_full.py
+    cd faultforge && sudo $(which uv) run python ../scripts/integration_minimizer.py
 """
 
 from __future__ import annotations

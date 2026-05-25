@@ -8,12 +8,19 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from typing import Protocol
 
 from faultforge.runtime import ResolvedRuntime
 from faultforge.systems.registry import create_system
 from faultforge.trial import Trial, TrialPaths, TrialResult
 
 logger = logging.getLogger(__name__)
+
+
+class RunTrial(Protocol):
+    """Protocol for anything that can execute a Trial."""
+
+    def run(self, trial: Trial) -> TrialResult: ...
 
 
 class TrialRunner:

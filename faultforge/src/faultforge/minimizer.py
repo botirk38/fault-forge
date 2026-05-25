@@ -3,23 +3,29 @@
 Given a reproducing trial (one where the oracle confirms the symptom),
 iteratively reduces fault parameters to find the minimal fault recipe —
 the simplest combination that still triggers the vulnerability.
+
+Algorithm: greedy dimensional reduction.
+  1. Eliminate unnecessary faults (fault count)
+  2. Binary-search minimum severity per remaining fault
+  3. Binary-search minimum duration per remaining fault
+  4. Binary-search latest start time per remaining fault
 """
 
 from __future__ import annotations
 
 import copy
 import logging
-import re
 from dataclasses import dataclass, field
 
 from faultforge.oracle import Oracle, OracleResult
-from faultforge.runner import TrialRunner
-from faultforge.trial import SlowFaultKind, Trial
+from faultforge.runner import RunTrial
+from faultforge.severity import build_severity, parse_severity_ms
+from faultforge.trial import Trial
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class MinimizationConfig:
     """Controls the minimization budget and behavior."""
 
@@ -28,10 +34,9 @@ class MinimizationConfig:
     magnitude_steps: int = 8
     duration_steps: int = 5
     timing_steps: int = 5
-    require_consecutive: int = 1
 
 
-@dataclass
+@dataclass(frozen=True)
 class ReductionStep:
     """Record of one successful reduction."""
 
@@ -63,31 +68,21 @@ class Minimizer:
 
     def __init__(
         self,
-        runner: TrialRunner,
+        runner: RunTrial,
         oracle: Oracle,
         config: MinimizationConfig | None = None,
     ) -> None:
         self._runner = runner
         self._oracle = oracle
         self._config = config or MinimizationConfig()
-        self._iterations_used = 0
-
-    @property
-    def budget_remaining(self) -> int:
-        return self._config.max_iterations - self._iterations_used
 
     def minimize(self, trial: Trial) -> MinimizationResult:
-        """Run the full minimization pipeline on a reproducing trial.
-
-        Returns the minimal trial that still reproduces the symptom,
-        along with the reduction log and iteration count.
-        """
-        self._iterations_used = 0
+        """Run the full minimization pipeline on a reproducing trial."""
         original = copy.deepcopy(trial)
+        budget = _Budget(self._config.max_iterations)
         reductions: list[ReductionStep] = []
 
-        # Verify the trial actually reproduces
-        initial_result = self._evaluate(trial)
+        initial_result = self._evaluate(trial, budget)
         if not initial_result.reproduced:
             logger.warning(
                 "Trial does not reproduce (score=%.2f). Returning as-is.",
@@ -96,62 +91,58 @@ class Minimizer:
             return MinimizationResult(
                 original=original,
                 minimized=trial,
-                iterations_used=self._iterations_used,
-                reductions=[],
+                iterations_used=budget.used,
                 final_score=initial_result.score,
             )
 
-        # Phase 1: Reduce fault count
-        trial, count_reductions = self._reduce_fault_count(trial)
-        reductions.extend(count_reductions)
+        trial, count_steps = self._reduce_fault_count(trial, budget)
+        reductions.extend(count_steps)
 
-        # Phase 2: For each remaining fault, reduce dimensions
         for fault_idx in range(len(trial.faults)):
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
+            trial, steps = self._reduce_magnitude(trial, fault_idx, budget)
+            reductions.extend(steps)
 
-            # Reduce magnitude
-            trial, mag_steps = self._reduce_magnitude(trial, fault_idx)
-            reductions.extend(mag_steps)
-
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
+            trial, steps = self._reduce_duration(trial, fault_idx, budget)
+            reductions.extend(steps)
 
-            # Reduce duration
-            trial, dur_steps = self._reduce_duration(trial, fault_idx)
-            reductions.extend(dur_steps)
-
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
+            trial, steps = self._reduce_timing(trial, fault_idx, budget)
+            reductions.extend(steps)
 
-            # Narrow timing (find latest start that still works)
-            trial, time_steps = self._reduce_timing(trial, fault_idx)
-            reductions.extend(time_steps)
-
-        # Get final score
-        final_result = self._evaluate(trial)
+        final_result = self._evaluate(trial, budget)
 
         return MinimizationResult(
             original=original,
             minimized=trial,
-            iterations_used=self._iterations_used,
+            iterations_used=budget.used,
             reductions=reductions,
             final_score=final_result.score,
         )
 
-    def _reduce_fault_count(self, trial: Trial) -> tuple[Trial, list[ReductionStep]]:
+    # ------------------------------------------------------------------
+    # Reduction phases
+    # ------------------------------------------------------------------
+
+    def _reduce_fault_count(
+        self, trial: Trial, budget: _Budget
+    ) -> tuple[Trial, list[ReductionStep]]:
         """Try removing each fault; keep removals that preserve reproduction."""
         reductions: list[ReductionStep] = []
         if len(trial.faults) <= 1:
             return trial, reductions
 
         idx = 0
-        while idx < len(trial.faults) and len(trial.faults) > 1 and self.budget_remaining > 0:
+        while idx < len(trial.faults) and len(trial.faults) > 1 and not budget.exhausted:
             candidate = copy.deepcopy(trial)
             removed = candidate.faults.pop(idx)
 
-            result = self._evaluate(candidate)
-            if result.reproduced and result.score >= self._config.score_threshold:
+            result = self._evaluate(candidate, budget)
+            if self._is_reproduced(result):
                 logger.info(
                     "Removed fault %d (%s) — still reproduces (score=%.2f)",
                     idx,
@@ -168,30 +159,30 @@ class Minimizer:
                     )
                 )
                 trial = candidate
-                # Don't increment idx — next fault shifted down
             else:
                 idx += 1
 
         return trial, reductions
 
-    def _reduce_magnitude(self, trial: Trial, fault_idx: int) -> tuple[Trial, list[ReductionStep]]:
+    def _reduce_magnitude(
+        self, trial: Trial, fault_idx: int, budget: _Budget
+    ) -> tuple[Trial, list[ReductionStep]]:
         """Binary search for minimum severity on a single fault."""
-        reductions: list[ReductionStep] = []
         fault = trial.faults[fault_idx]
         original_severity = fault.severity
 
         current_ms = parse_severity_ms(fault.fault_type, fault.severity)
         if current_ms is None:
-            return trial, reductions
+            return trial, []
 
         lo = 0.0
         hi = current_ms
         best_severity = original_severity
         best_score = 1.0
 
-        steps = min(self._config.magnitude_steps, self.budget_remaining)
+        steps = min(self._config.magnitude_steps, budget.remaining)
         for _ in range(steps):
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
             mid = (lo + hi) / 2
             if mid <= 0:
@@ -201,14 +192,15 @@ class Minimizer:
             new_severity = build_severity(fault.fault_type, mid)
             candidate.faults[fault_idx].severity = new_severity
 
-            result = self._evaluate(candidate)
-            if result.reproduced and result.score >= self._config.score_threshold:
+            result = self._evaluate(candidate, budget)
+            if self._is_reproduced(result):
                 hi = mid
                 best_severity = new_severity
                 best_score = result.score
             else:
                 lo = mid
 
+        reductions: list[ReductionStep] = []
         if best_severity != original_severity:
             trial = copy.deepcopy(trial)
             trial.faults[fault_idx].severity = best_severity
@@ -224,23 +216,24 @@ class Minimizer:
 
         return trial, reductions
 
-    def _reduce_duration(self, trial: Trial, fault_idx: int) -> tuple[Trial, list[ReductionStep]]:
+    def _reduce_duration(
+        self, trial: Trial, fault_idx: int, budget: _Budget
+    ) -> tuple[Trial, list[ReductionStep]]:
         """Binary search for minimum duration on a single fault."""
-        reductions: list[ReductionStep] = []
         fault = trial.faults[fault_idx]
         original_duration = fault.duration_s
 
         if original_duration <= 1:
-            return trial, reductions
+            return trial, []
 
         lo = 1
         hi = original_duration
         best_duration = original_duration
         best_score = 1.0
 
-        steps = min(self._config.duration_steps, self.budget_remaining)
+        steps = min(self._config.duration_steps, budget.remaining)
         for _ in range(steps):
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
             mid = (lo + hi) // 2
             if mid <= 0 or mid >= hi:
@@ -249,14 +242,15 @@ class Minimizer:
             candidate = copy.deepcopy(trial)
             candidate.faults[fault_idx].duration_s = mid
 
-            result = self._evaluate(candidate)
-            if result.reproduced and result.score >= self._config.score_threshold:
+            result = self._evaluate(candidate, budget)
+            if self._is_reproduced(result):
                 hi = mid
                 best_duration = mid
                 best_score = result.score
             else:
                 lo = mid + 1
 
+        reductions: list[ReductionStep] = []
         if best_duration != original_duration:
             trial = copy.deepcopy(trial)
             trial.faults[fault_idx].duration_s = best_duration
@@ -272,31 +266,25 @@ class Minimizer:
 
         return trial, reductions
 
-    def _reduce_timing(self, trial: Trial, fault_idx: int) -> tuple[Trial, list[ReductionStep]]:
-        """Binary search for latest start time that still reproduces.
-
-        A later start means the system needs less "warm-up" exposure,
-        making the recipe more specific about when the vulnerability
-        window opens.
-        """
-        reductions: list[ReductionStep] = []
+    def _reduce_timing(
+        self, trial: Trial, fault_idx: int, budget: _Budget
+    ) -> tuple[Trial, list[ReductionStep]]:
+        """Binary search for latest start time that still reproduces."""
         fault = trial.faults[fault_idx]
         original_start = fault.start_s
 
-        # Try to push the start time later
-        # Use benchmark exec time as upper bound
         max_start = trial.benchmark.exec_time_s - fault.duration_s
         if max_start <= original_start:
-            return trial, reductions
+            return trial, []
 
         lo = original_start
         hi = max_start
         best_start = original_start
         best_score = 1.0
 
-        steps = min(self._config.timing_steps, self.budget_remaining)
+        steps = min(self._config.timing_steps, budget.remaining)
         for _ in range(steps):
-            if self.budget_remaining <= 0:
+            if budget.exhausted:
                 break
             mid = (lo + hi) // 2
             if mid <= lo:
@@ -305,14 +293,15 @@ class Minimizer:
             candidate = copy.deepcopy(trial)
             candidate.faults[fault_idx].start_s = mid
 
-            result = self._evaluate(candidate)
-            if result.reproduced and result.score >= self._config.score_threshold:
+            result = self._evaluate(candidate, budget)
+            if self._is_reproduced(result):
                 lo = mid
                 best_start = mid
                 best_score = result.score
             else:
                 hi = mid
 
+        reductions: list[ReductionStep] = []
         if best_start != original_start:
             trial = copy.deepcopy(trial)
             trial.faults[fault_idx].start_s = best_start
@@ -328,9 +317,13 @@ class Minimizer:
 
         return trial, reductions
 
-    def _evaluate(self, trial: Trial) -> OracleResult:
-        """Run trial and evaluate oracle. Counts against iteration budget."""
-        self._iterations_used += 1
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    def _evaluate(self, trial: Trial, budget: _Budget) -> OracleResult:
+        """Run trial and evaluate oracle. Consumes one iteration from budget."""
+        budget.spend()
         trial_result = self._runner.run(trial)
 
         if not trial_result.success or not trial_result.artifacts:
@@ -344,69 +337,30 @@ class Minimizer:
 
         return self._oracle.evaluate(artifacts=trial_result.artifacts)
 
-
-# --- Severity parsing utilities ---
-
-_NW_DELAY_RE = re.compile(r"slow-(\d+(?:\.\d+)?)(us|ms|s)$")
-_NW_FLAKY_RE = re.compile(r"flaky-p(\d+(?:\.\d+)?)$")
-_FS_DELAY_RE = re.compile(r"^(\d+)$")
+    def _is_reproduced(self, result: OracleResult) -> bool:
+        return result.reproduced and result.score >= self._config.score_threshold
 
 
-def parse_severity_ms(fault_type: SlowFaultKind, severity: str) -> float | None:
-    """Extract numeric magnitude from a severity string.
+class _Budget:
+    """Tracks iteration budget consumption."""
 
-    Returns the value normalized to milliseconds for network faults,
-    or microseconds for filesystem faults.  Returns None if the
-    severity format is not reducible (e.g., cpu/mem/process).
-    """
-    if fault_type == "nw":
-        m = _NW_DELAY_RE.match(severity)
-        if m:
-            value = float(m.group(1))
-            unit = m.group(2)
-            if unit == "us":
-                return value / 1000.0
-            if unit == "ms":
-                return value
-            if unit == "s":
-                return value * 1000.0
-        m = _NW_FLAKY_RE.match(severity)
-        if m:
-            return float(m.group(1))
-        return None
+    __slots__ = ("_limit", "_used")
 
-    if fault_type == "fs":
-        m = _FS_DELAY_RE.match(severity)
-        if m:
-            return float(m.group(1))
-        return None
+    def __init__(self, limit: int) -> None:
+        self._limit = limit
+        self._used = 0
 
-    return None
+    @property
+    def remaining(self) -> int:
+        return self._limit - self._used
 
+    @property
+    def exhausted(self) -> bool:
+        return self._used >= self._limit
 
-def build_severity(fault_type: SlowFaultKind, value: float) -> str:
-    """Build severity string from numeric value.
+    @property
+    def used(self) -> int:
+        return self._used
 
-    For network: produces 'slow-Xus', 'slow-Xms', or 'slow-Xs'
-    depending on magnitude.  For network flaky: 'flaky-pX'.
-    For filesystem: integer microseconds.
-    """
-    if fault_type == "nw":
-        if value < 1.0:
-            us = value * 1000.0
-            if us == int(us):
-                return f"slow-{int(us)}us"
-            return f"slow-{us:.1f}us"
-        if value >= 1000.0:
-            s = value / 1000.0
-            if s == int(s):
-                return f"slow-{int(s)}s"
-            return f"slow-{s:.1f}s"
-        if value == int(value):
-            return f"slow-{int(value)}ms"
-        return f"slow-{value:.1f}ms"
-
-    if fault_type == "fs":
-        return str(int(value))
-
-    return str(int(value))
+    def spend(self) -> None:
+        self._used += 1

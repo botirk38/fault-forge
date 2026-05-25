@@ -8,6 +8,8 @@ from faultforge.minimizer import (
     Minimizer,
     ReductionStep,
 )
+from faultforge.runner import RunTrial
+from faultforge.severity import build_severity, parse_severity_ms
 from faultforge.trial import (
     BenchmarkConfig,
     ResourceLimit,
@@ -26,10 +28,13 @@ __all__ = [
     "Minimizer",
     "ReductionStep",
     "ResourceLimit",
+    "RunTrial",
     "SlowFault",
     "SlowFaultKind",
     "SystemConfig",
     "Trial",
     "TrialPaths",
     "TrialResult",
+    "build_severity",
+    "parse_severity_ms",
 ]

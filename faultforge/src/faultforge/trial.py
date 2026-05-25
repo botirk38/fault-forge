@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 type SlowFaultKind = Literal["nw", "fs", "cpu", "mem", "process", "none"]
 
@@ -353,6 +353,47 @@ class Trial:
     paths: TrialPaths | None = None
     iteration: int = 1
     version: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Trial:
+        """Deserialize a Trial from a JSON-compatible dict."""
+        sys_data: dict[str, Any] = data.get("system") or {}
+        system = SystemConfig(
+            name=sys_data.get("name", "unknown"),
+            version=sys_data.get("version"),
+            cluster_size=sys_data.get("cluster_size", 3),
+        )
+        bm_data: dict[str, Any] = data.get("benchmark") or {}
+        benchmark = BenchmarkConfig(
+            name=bm_data.get("name", "ycsb"),
+            exec_time_s=bm_data.get("exec_time_s", 150),
+            kwargs=bm_data.get("kwargs", {}),
+        )
+        raw_faults: list[dict[str, Any]] = data.get("faults") or []
+        faults = [
+            SlowFault(
+                fault_type=f["fault_type"],
+                location=f["location"],
+                duration_s=f["duration_s"],
+                severity=f["severity"],
+                start_s=f.get("start_s", 0),
+                if_restart=f.get("if_restart", False),
+            )
+            for f in raw_faults
+        ]
+        res_data: dict[str, Any] = data.get("resource") or {}
+        resource = ResourceLimit(
+            cpu_limit=res_data.get("cpu_limit", "4"),
+            mem_limit=res_data.get("mem_limit", "32G"),
+        )
+        return cls(
+            trial_id=data.get("trial_id", "trial"),
+            system=system,
+            benchmark=benchmark,
+            faults=faults,
+            issue_id=data.get("issue_id", ""),
+            resource=resource,
+        )
 
 
 @dataclass

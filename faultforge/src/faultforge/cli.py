@@ -24,8 +24,6 @@ from faultforge.search import (
 )
 from faultforge.trial import (
     BenchmarkConfig,
-    ResourceLimit,
-    SlowFault,
     SlowFaultKind,
     SystemConfig,
     Trial,
@@ -352,7 +350,7 @@ def minimize_cmd(
     ora = Oracle.from_file(oracle)
 
     trial_data = json.loads(trial_file.read_text(encoding="utf-8"))
-    trial = _load_trial(trial_data)
+    trial = Trial.from_dict(trial_data)
 
     config = MinimizationConfig(
         max_iterations=max_iterations,
@@ -398,42 +396,3 @@ def minimize_cmd(
         click.echo("Minimal recipe faults:")
         for i, f in enumerate(result.minimized.faults):
             click.echo(f"  [{i}] {f.info}")
-
-
-def _load_trial(data: dict) -> Trial:
-    """Load a Trial from a JSON dict."""
-    system = SystemConfig(
-        name=data.get("system", {}).get("name", "unknown"),
-        version=data.get("system", {}).get("version"),
-        cluster_size=data.get("system", {}).get("cluster_size", 3),
-    )
-    bm_data = data.get("benchmark", {})
-    benchmark = BenchmarkConfig(
-        name=bm_data.get("name", "ycsb"),
-        exec_time_s=bm_data.get("exec_time_s", 150),
-        kwargs=bm_data.get("kwargs", {}),
-    )
-    faults = [
-        SlowFault(
-            fault_type=f["fault_type"],
-            location=f["location"],
-            duration_s=f["duration_s"],
-            severity=f["severity"],
-            start_s=f.get("start_s", 0),
-            if_restart=f.get("if_restart", False),
-        )
-        for f in data.get("faults", [])
-    ]
-    resource_data = data.get("resource", {})
-    resource = ResourceLimit(
-        cpu_limit=resource_data.get("cpu_limit", "4"),
-        mem_limit=resource_data.get("mem_limit", "32G"),
-    )
-    return Trial(
-        trial_id=data.get("trial_id", "minimize-input"),
-        system=system,
-        benchmark=benchmark,
-        faults=faults,
-        issue_id=data.get("issue_id", ""),
-        resource=resource,
-    )

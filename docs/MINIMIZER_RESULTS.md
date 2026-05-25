@@ -98,8 +98,8 @@ The greedy algorithm finds danger-zone boundaries in **12-15 iterations** across
 
 ```bash
 cd faultforge
-# Full test suite (requires Docker + sudo)
-sudo $(which uv) run python tests/integration_minimizer_full.py
+# Full integration suite (requires Docker + sudo)
+sudo $(which uv) run python ../scripts/integration_minimizer.py
 
 # Unit tests (no Docker required)
 uv run pytest tests/test_minimizer.py -v
