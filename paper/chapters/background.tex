@@ -75,7 +75,7 @@ but has structural limitations:
 
 \para{Fixed range} The grid covers exactly 100\,$\mu$s to 1\,s. Systems with
 boundaries above 1\,s (Redis at 2.7\,s) or below 100\,$\mu$s produce
-uninformative results---either all-miss or all-hit across the entire grid.
+uninformative results (either all-miss or all-hit across the entire grid).
 
 \para{Fixed granularity} Grid spacing is non-uniform (100\,$\mu$s steps at the
 low end, 100\,ms steps at the high end). The actual boundary resolution depends
@@ -103,7 +103,7 @@ While effective for exception bugs with discrete triggers, \anduril{}'s
 approach requires code-level instrumentation (function interception, return
 value modification) and targets single-event triggers rather than the
 \emph{sustained} performance degradation characteristic of slow faults. A
-slow fault manifests over many operations---there is no single function call
+slow fault manifests over many operations, and there is no single function call
 to intercept.
 
 \subsection{Problem Statement}
@@ -126,7 +126,7 @@ Find: A fault configuration $f^* \in \mathcal{F}$ such that:
   \item The total number of trial executions is minimized (efficiency).
 \end{enumerate}
 
-\noindent This formulation produces a \emph{locally minimal} recipe---minimal
+\noindent This formulation produces a \emph{locally minimal} recipe, minimal
 along each dimension independently. Finding the \emph{globally minimal} recipe
 (Pareto-optimal across all dimensions simultaneously) would require exponential
 trials; we show that local minimality is sufficient for practical use.
@@ -138,8 +138,8 @@ Three observations motivate \system{}'s design:
 \para{Observation 1: Fault effects are monotone} For additive faults (network
 delay via \texttt{tc netem}, filesystem latency via injection), the effect is
 monotonically non-decreasing with severity. If injecting 20\,ms delay causes
-a leader election, then 25\,ms, 50\,ms, and 100\,ms also cause it---the higher
-delay strictly subsumes the lower. This \emph{monotonicity property} enables
+a leader election, then 25\,ms, 50\,ms, and 100\,ms also cause it because the
+higher delay strictly subsumes the lower. This \emph{monotonicity property} enables
 binary search over continuous severity ranges.
 
 We formalize this as: for fault parameter $s$ and oracle $O$, if $O(s_1) =

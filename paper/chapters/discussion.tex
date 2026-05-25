@@ -81,7 +81,7 @@ boundary, not the exact boundary itself.
 CockroachDB): The true boundary is \emph{below} 19.5\,ms (confirmed by
 \xinda{}'s grid showing reproduction at 100\,$\mu$s). Our 19.5\,ms result
 means: ``with 8 binary search steps from 5000\,ms, we cannot distinguish
-the boundary from zero---it's below our precision limit.'' Increasing
+the boundary from zero; it is below our precision limit.'' Increasing
 $B_{\text{mag}}$ to 16 would resolve to 0.076\,ms (76\,$\mu$s), consistent
 with \xinda{}'s findings.
 
@@ -128,7 +128,7 @@ theoretical limitation.
 has systematic blind spots (certain failure modes never logged), the minimizer
 may converge on a boundary for a \emph{subset} of the actual vulnerability
 surface. The oracle evaluation (Section~\ref{sec:oracle-eval}) quantifies
-this risk---97\% recall means approximately 3\% of actual failures go
+this risk: 97\% recall means approximately 3\% of actual failures go
 undetected.
 
 \para{Time cost} While faster than exhaustive grid per system, \system{}'s

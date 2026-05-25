@@ -8,8 +8,8 @@ system design, deployment, and monitoring.
 
 \subsection{Finding 1: Sub-20\,ms Danger Zones Are Universal Across Consensus}
 
-Five of ten systems (etcd, ZooKeeper, MongoDB, TiKV, CockroachDB)---all
-Raft-based or equivalent consensus protocols---trigger catastrophic leader
+Five of ten systems (etcd, ZooKeeper, MongoDB, TiKV, CockroachDB), all
+Raft-based or equivalent consensus protocols, trigger catastrophic leader
 elections at $\leq$19.5\,ms of network delay. The true boundary is likely
 even lower (see Section~\ref{sec:head-to-head}, boundary interpretation).
 
@@ -142,8 +142,8 @@ maintenance.
 
 Combined faults lower individual boundaries by mean 31.4\%
 (Section~\ref{sec:multi-fault-eval}). The most severe case (HBase nw+fs:
-50\% reduction) demonstrates that production environments---which routinely
-experience multiple simultaneous degradations---are more vulnerable than
+50\% reduction) demonstrates that production environments (which routinely
+experience multiple simultaneous degradations) are more vulnerable than
 single-fault testing suggests.
 
 \para{Implication for CI} Regression tests based on single-fault boundaries

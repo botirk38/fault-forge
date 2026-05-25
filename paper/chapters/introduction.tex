@@ -6,7 +6,7 @@
 Distributed systems in production environments face a class of faults that are
 particularly insidious: \emph{slow faults}~\cite{xinda,gunawi-cbs}. Unlike
 crash failures, which are immediately detectable, slow faults manifest as
-transient performance degradations---a network link experiencing microsecond
+transient performance degradations: a network link experiencing microsecond
 delays, a disk taking milliseconds longer to complete I/O, or a CPU being
 temporarily throttled. These degradations are often below monitoring thresholds
 yet sufficient to trigger cascading failures in consensus protocols, leader
@@ -16,8 +16,8 @@ elections, and replication pipelines~\cite{huang-gray-failure,
 Industry reports confirm the severity of this problem. Google's Disruptive
 Testing Team found that 22\% of production incidents involved degraded (not
 failed) components~\cite{google-sre-book}. Microsoft Azure's post-mortem
-analysis revealed that gray failures---where a component is in a degraded state
-undetected by health checks---account for significant fractions of customer-impacting
+analysis revealed that gray failures (where a component is in a degraded state
+undetected by health checks) account for significant fractions of customer-impacting
 outages~\cite{huang-gray-failure}. Datadog's 2023 State of Cloud Monitoring
 report documents that median alert thresholds across their customer base are
 1--5\,s for network latency anomalies~\cite{datadog-monitoring}, creating a
@@ -34,14 +34,14 @@ limitations:
 \begin{enumerate}[leftmargin=*,topsep=4pt,itemsep=2pt]
   \item \textbf{Grid incompleteness.} Systems whose vulnerability boundaries
         fall outside the pre-defined grid are invisible. Redis Cluster, for
-        example, requires 2.7\,s of sustained delay to trigger PFAIL---entirely
-        outside \xinda{}'s 100\,$\mu$s--1\,s range. Similarly, filesystem
+        example, requires 2.7\,s of sustained delay to trigger PFAIL, which is
+        entirely outside \xinda{}'s 100\,$\mu$s--1\,s range. Similarly, filesystem
         fault boundaries for batch-oriented systems (Hadoop, Kafka) often
         exceed standard grid ranges.
   \item \textbf{No minimization.} \xinda{} answers ``does the fault reproduce
         at each grid point?'' (binary yes/no per severity level), but never
-        identifies the \emph{minimal} fault configuration---the tightest
-        bound on the dangerous region. For systems sensitive at all grid points,
+        identifies the \emph{minimal} fault configuration (the tightest
+        bound on the dangerous region). For systems sensitive at all grid points,
         \xinda{} reports the lowest grid value (100\,$\mu$s) as its bound,
         but the true boundary may be lower still.
   \item \textbf{Grid design burden.} Different systems require different grids
@@ -51,7 +51,7 @@ limitations:
 
 We present \system{}, a symptom-guided fault reproduction orchestrator that
 addresses these limitations. Given a production issue symptom (expressed as a
-\emph{symptom oracle}---a declarative specification of log patterns indicating
+\emph{symptom oracle}, a declarative specification of log patterns indicating
 reproduction), \system{} automatically searches for and \emph{minimizes} a
 fault trial that reproduces the symptom. The key insight is that fault
 vulnerability boundaries can be efficiently located using binary search over
@@ -74,12 +74,12 @@ five fault types (network, filesystem, CPU, memory, process). Our results show:
         exhaustive grid across all system--fault configurations, with consistent
         speedups of 1.8--2.4$\times$ in wall-clock time.
   \item \system{} discovers vulnerabilities \textbf{outside fixed grids} in
-        7 of 50 configurations---including Redis's 2.7\,s network boundary,
+        7 of 50 configurations, including Redis's 2.7\,s network boundary,
         Hadoop's 1.2\,s filesystem boundary, and Kafka's 850\,ms replication
         boundary.
   \item Consensus-based systems (etcd, ZooKeeper, MongoDB, TiKV, CockroachDB)
         universally exhibit catastrophic failure boundaries at
-        \textbf{sub-20\,ms} network delay---250$\times$ below documented
+        \textbf{sub-20\,ms} network delay, which is 250$\times$ below documented
         industry alerting thresholds~\cite{datadog-monitoring,google-sre-book}.
   \item \textbf{Multi-fault interactions} lower individual boundaries by up to
         40\%: combining network + filesystem faults on etcd reduces the network
@@ -99,6 +99,6 @@ five fault types (network, filesystem, CPU, memory, process). Our results show:
         and result stability (\S\ref{sec:eval}).
   \item Empirical characterization of slow-fault danger zones across the
         distributed systems ecosystem, revealing that sub-20\,ms network
-        perturbations---routine in cloud environments---universally destabilize
+        perturbations (routine in cloud environments) universally destabilize
         consensus protocols (\S\ref{sec:findings}).
 \end{enumerate}

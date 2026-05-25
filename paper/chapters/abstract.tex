@@ -2,8 +2,8 @@
 \begin{abstract}
 % ===========================================================================
 
-Slow faults---transient performance degradations such as network delays, disk
-stalls, and CPU throttling---are a leading cause of catastrophic failures in
+Slow faults (transient performance degradations such as network delays, disk
+stalls, and CPU throttling) are a leading cause of catastrophic failures in
 production distributed systems. Existing tools like \xinda{} explore the
 \emph{impact} of configured slow faults using exhaustive grid search, but
 require manual grid design and cannot characterize the \emph{minimal} fault
@@ -24,13 +24,14 @@ process). Across 50 system--fault configurations, \system{} uses
 \textbf{52\% fewer trials} on average and completes \textbf{2.1$\times$
 faster} than \xinda{}'s exhaustive grid while producing actionable minimal
 fault recipes. Critically, \system{} discovers vulnerabilities that fall
-outside fixed grids---Redis Cluster's failure boundary at 2.7\,s is entirely
+outside fixed grids: Redis Cluster's failure boundary at 2.7\,s is entirely
 invisible to \xinda{}'s network grid (which covers up to 1\,s), and several
 filesystem boundaries exceed standard severity ranges. Our results reveal
 that consensus-based systems universally trigger catastrophic leader elections
-under sub-20\,ms network delay---250$\times$ below typical operator alerting
-thresholds (as documented in industry SRE reports)---demonstrating that slow
-faults pose a far greater threat than current monitoring practices address.
+under sub-20\,ms network delay, which is 250$\times$ below typical operator
+alerting thresholds (as documented in industry SRE reports), demonstrating
+that slow faults pose a far greater threat than current monitoring practices
+address.
 
 Repeated trials across five independent runs per configuration confirm the
 stability of these boundaries (coefficient of variation $<5\%$ for network

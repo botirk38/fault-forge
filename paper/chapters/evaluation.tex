@@ -36,7 +36,7 @@ protocols (Redis gossip, Cassandra $\phi$-accrual), and one with KRaft (Kafka).
   \item \textbf{Filesystem (fs)}: Simulated I/O delay, range 0--10\,s.
   \item \textbf{CPU (cpu)}: cgroup throttling, range 0.1--2.0 cores.
   \item \textbf{Memory (mem)}: cgroup limit, range 128\,MB--4\,GB.
-  \item \textbf{Process}: Container restart/stop (binary---no severity gradient).
+  \item \textbf{Process}: Container restart/stop (binary, no severity gradient).
 \end{itemize}
 
 \para{Oracles} System-specific symptom oracles matching log patterns for
@@ -119,7 +119,7 @@ minutes (2.06$\times$ speedup). Per-trial overhead is similar ($\sim$25\,s for
 cluster lifecycle), so speedup directly reflects trial count reduction.
 
 \para{Random search comparison} Random search finds \emph{a} reproducing trial
-quickly (mean 6.7 trials) but provides no minimization---the reported boundary
+quickly (mean 6.7 trials) but provides no minimization. The reported boundary
 is wherever the first random sample happened to land. Random search's boundary
 estimates are 10--100$\times$ higher than \system{}'s minimized values,
 demonstrating that finding \emph{any} reproduction is far easier than finding
@@ -172,7 +172,7 @@ Hadoop 3.3       & 312.5\,ms & 1.2\,s$\dagger$    & 0.39 cores & 1024\,MB & rest
 \end{table*}
 
 \para{Network faults} Five Raft-based systems (etcd, ZooKeeper, MongoDB, TiKV,
-CockroachDB) converge at 19.5\,ms---the precision limit from 5\,s with 8
+CockroachDB) converge at 19.5\,ms, which is the precision limit from 5\,s with 8
 binary search steps. Cassandra and HBase converge at 39.1\,ms (one step
 coarser due to slightly higher true boundaries). Kafka's KRaft protocol shows
 higher tolerance (78.1\,ms) due to its longer default session timeout. Hadoop
@@ -201,7 +201,7 @@ architecture.
 
 \para{Process faults} All systems detect and recover from single-node restarts
 (this is their design purpose). The interesting result is that restart is
-universally detectable---the relevant metric is \emph{time to detection},
+universally detectable; the relevant metric is \emph{time to detection},
 which varies from 1\,s (Redis PFAIL) to 30\,s (Hadoop session timeout).
 
 % -------------------------------------------------------------------
@@ -283,7 +283,7 @@ shows the largest reduction (50\%): the RegionServer's WAL writes become slow
 (fs fault) while its ZooKeeper heartbeats are delayed (nw fault), creating a
 compound effect where the session expires before the RegionServer can acknowledge.
 
-\para{Implication} Single-fault boundaries are \emph{optimistic}---real
+\para{Implication} Single-fault boundaries are \emph{optimistic}. Real
 production environments often experience multiple simultaneous degradations
 (network jitter + disk contention + CPU throttling). The true danger zone
 under combined faults is 20--50\% tighter than any individual measurement.
@@ -323,7 +323,7 @@ Hadoop        & 318  & 12   & 3.8\% & [303, 332] \\
 \end{table}
 
 \para{Network faults are highly stable} Mean CV of 2.5\% across all systems.
-Raft-based systems (etcd, ZooKeeper, TiKV, CockroachDB) show zero variance---
+Raft-based systems (etcd, ZooKeeper, TiKV, CockroachDB) show zero variance;
 the binary search converges to the same 19.5\,ms boundary every time because
 the true boundary is well below this value (all severities $\geq$ 19.5\,ms
 reproduce deterministically).
@@ -388,7 +388,7 @@ convergence point show a clean transition: $<$13\% reproduction below
 
 \para{Cassandra exception} Shows 97\% above-boundary (one non-reproduction in
 30 trials). This is due to the $\phi$-accrual failure detector's probabilistic
-nature---occasionally, a healthy gossip exchange occurs within the delay window,
+nature: occasionally, a healthy gossip exchange occurs within the delay window,
 preventing PFAIL detection. This 3\% false-negative rate does not affect the
 minimizer's convergence (the threshold $\theta=0.5$ provides sufficient margin).
 
@@ -431,7 +431,7 @@ Hadoop        & 100\% & 92\% & Speculative exec sometimes not logged \\
 \end{table}
 
 \para{High precision} (99.2\%) means the minimizer rarely converges on a
-false-positive---when the oracle says ``reproduced,'' it almost always truly
+false-positive. When the oracle says ``reproduced,'' it almost always truly
 reproduced. This is critical for minimizer correctness.
 
 \para{High recall} (97.0\%) means the minimizer rarely misses a reproducing

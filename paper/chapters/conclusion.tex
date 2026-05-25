@@ -7,7 +7,7 @@ We presented \system{}, a symptom-guided fault reproduction orchestrator that
 synthesizes minimal fault recipes for distributed systems. Through greedy
 dimensional reduction with binary search, \system{} converges on the boundary
 between safe and dangerous operation in $O(\log_2 n)$ iterations per
-dimension---using 52\% fewer trials than exhaustive grid approaches while
+dimension, using 52\% fewer trials than exhaustive grid approaches while
 producing tighter, more actionable boundary specifications.
 
 Our comprehensive evaluation across 10 production systems and 5 fault types
@@ -16,7 +16,7 @@ reveals three important properties of the distributed systems ecosystem:
 \begin{enumerate}[leftmargin=*,topsep=4pt,itemsep=2pt]
   \item \textbf{Consensus systems are universally fragile.} All Raft-based
         systems exhibit catastrophic failure boundaries at sub-20\,ms network
-        delay---a regime entirely below production monitoring visibility.
+        delay, a regime entirely below production monitoring visibility.
   \item \textbf{Fault type sensitivity varies by 4--16$\times$.} Network faults
         are the most dangerous category; filesystem, CPU, and memory faults
         trigger at proportionally higher severities due to more generous
@@ -34,7 +34,7 @@ on every change to consensus code, and system designers should consider adaptive
 failure detection to widen danger zones without sacrificing detection latency.
 
 \system{}'s minimal recipes provide a concrete, executable specification of
-each system's vulnerability surface---suitable for CI regression tests, SLA
+each system's vulnerability surface, suitable for CI regression tests, SLA
 definitions, and architectural decision-making. We release \system{} as open
 source to enable the community to characterize and improve the resilience of
 distributed systems.

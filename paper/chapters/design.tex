@@ -74,8 +74,8 @@ the target symptom was triggered. Rules support:
 \begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
   \item \texttt{contains}: Exact substring match in specified log file.
   \item \texttt{regex}: Regular expression match with capture groups.
-  \item \texttt{any}: Disjunction---any matching rule suffices.
-  \item \texttt{all}: Conjunction---all rules must match.
+  \item \texttt{any}: Disjunction (any matching rule suffices).
+  \item \texttt{all}: Conjunction (all rules must match).
   \item Nested groups for complex logic.
 \end{itemize}
 
@@ -143,7 +143,7 @@ Each fault is parameterized by five dimensions:
 \end{itemize}
 
 A trial with multiple faults ($|\text{Faults}| > 1$) enables testing of
-\emph{fault interactions}---\eg{}, simultaneous network delay on two nodes, or
+\emph{fault interactions}, \eg{}, simultaneous network delay on two nodes, or
 combined network + filesystem degradation on a single node.
 
 \subsection{Greedy Dimensional Minimizer}
@@ -151,7 +151,7 @@ combined network + filesystem degradation on a single node.
 
 The minimizer is \system{}'s key algorithmic contribution. Given a reproducing
 trial $T_0$ (where the oracle confirms the symptom), it iteratively reduces
-fault parameters to find $T_{\min}$---a locally minimal trial that still
+fault parameters to find $T_{\min}$, a locally minimal trial that still
 reproduces.
 
 \begin{algorithm}[t]
@@ -230,7 +230,7 @@ range $[0, S_{\max}]$, the converged severity satisfies:
 
 For $S_{\max} = 5000$\,ms and $B_{\text{mag}} = 8$: precision = 19.5\,ms.
 For the same budget from $S_{\max} = 10000$\,ms (Redis): precision = 39\,ms.
-This precision is a \emph{configurable} property---operators trade iterations
+This precision is a \emph{configurable} property: operators trade iterations
 for tighter bounds.
 
 \para{Monotonicity assumption} Binary search requires that the oracle response
@@ -269,7 +269,7 @@ which faults are \emph{necessary} for the symptom and which are redundant.
 The interaction effects of multi-fault trials create a non-trivial search
 problem: fault $A$ alone may not reproduce, fault $B$ alone may not reproduce,
 but $A + B$ together may reproduce through interaction. \system{}'s greedy
-approach handles this correctly---it only removes a fault if the remaining
+approach handles this correctly; it only removes a fault if the remaining
 faults still reproduce, preserving necessary interactions.
 
 After count reduction, the per-fault binary search in Phases 2--4 minimizes
