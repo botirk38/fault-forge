@@ -1,0 +1,101 @@
+% ===========================================================================
+\section{Implementation}
+\label{sec:impl}
+% ===========================================================================
+
+\system{} is implemented in approximately 3,200 lines of Python 3.12, organized
+as a \texttt{uv} package with strict type checking (\texttt{ty check}) and
+formatting enforcement (\texttt{ruff}).
+
+\subsection{Fault Injection}
+\label{sec:injection}
+
+\system{} implements five fault injection mechanisms, all operating from
+outside the container (no agent required inside):
+
+\para{Network faults (\texttt{nw})} Injected using \texttt{nsenter} to enter
+a container's network namespace, then applying \texttt{tc netem} rules:
+
+\begin{lstlisting}[language=bash,caption={Network fault injection via nsenter.},label={lst:inject-nw}]
+PID=$(docker inspect --format \
+  '{{.State.Pid}}' $CONTAINER)
+nsenter -t $PID -n tc qdisc replace \
+  dev eth0 root netem delay ${DELAY}ms
+\end{lstlisting}
+
+This provides microsecond-precision delay injection without modifying container
+images. Delay values are specified as continuous millisecond values (\eg{},
+\texttt{slow-19.5ms}), enabling arbitrarily fine binary search granularity.
+
+\para{Filesystem faults (\texttt{fs})} Simulated by injecting network delay on
+the container's storage-path traffic. For higher fidelity, CharybdeFS
+(FUSE-based) injection is supported but requires additional host setup.
+
+\para{CPU faults (\texttt{cpu})} Docker's cgroup CPU quota
+(\texttt{docker update --cpus=\$\{LIMIT\}}).
+Severity values specify the fraction of a CPU core available.
+
+\para{Memory faults (\texttt{mem})} Cgroup memory limits
+(\texttt{docker update --memory=\$\{LIMIT\}}).
+Values constrain available memory, forcing GC pressure in JVM-based systems.
+
+\para{Process faults (\texttt{process})} Container restart or stop via
+\texttt{docker restart}/\texttt{docker stop}.
+
+\subsection{System Lifecycle}
+
+Each trial executes a deterministic 8-step lifecycle: network creation,
+container startup, stabilization wait (8--15\,s), fault injection, workload
+execution, post-injection wait (12--30\,s), log collection, and teardown.
+Each system is described by a YAML specification defining container image,
+cluster size, start/stop commands, and workload command.
+
+Table~\ref{tab:systems} lists all 10 systems with their cluster configurations.
+
+\begin{table}[t]
+\centering
+\caption{Systems under test with cluster configurations.}
+\label{tab:systems}
+\small
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{System} & \textbf{Version} & \textbf{Nodes} & \textbf{Protocol} \\
+\midrule
+etcd & 3.5.10 & 3 & Raft \\
+ZooKeeper & 3.8 & 3 & ZAB \\
+MongoDB & 7.0 & 3 & Raft (replica set) \\
+Redis & 7.2 & 6 & Gossip + PFAIL \\
+TiKV & 7.5 & 3 & Multi-Raft \\
+Cassandra & 4.1 & 3 & Gossip + $\phi$ detector \\
+HBase & 2.5 & 4 & ZK-coordinated \\
+Kafka & 3.6 & 3 & KRaft \\
+CockroachDB & 23.2 & 3 & Multi-Raft \\
+Hadoop & 3.3 & 3 & ZK-coordinated \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Oracle Specifications}
+
+We developed 21 oracle specifications covering multiple failure modes per
+system: leader election (etcd, ZK, MongoDB, TiKV, CockroachDB), failover/PFAIL
+(Redis), replication lag (Kafka, HBase), timeout cascades (Cassandra, HBase),
+and throughput collapse (Hadoop, Cassandra).
+
+\subsection{Severity Parsing}
+
+Severity strings follow type-specific formats that the minimizer parses
+into continuous numeric values for binary search:
+Network (\texttt{slow-\{value\}\{unit\}} $\rightarrow$ ms),
+CPU (\texttt{cpus-\{fraction\}} $\rightarrow$ cores),
+Memory (\texttt{memory-\{value\}\{unit\}} $\rightarrow$ bytes).
+After convergence, the numeric result is formatted back into canonical
+strings for reproducibility.
+
+\subsection{RunTrial Protocol}
+
+The minimizer is decoupled from infrastructure through a \texttt{RunTrial}
+protocol (Python \texttt{Protocol} class). This abstraction allows the same
+minimizer to operate with \texttt{LiveRunner} (Docker + nsenter, used in
+evaluation), \texttt{MockRunner} (deterministic, for unit tests), or future
+\texttt{K8sRunner} (Kubernetes, for production clusters).

@@ -1,0 +1,111 @@
+% ===========================================================================
+\section{Introduction}
+\label{sec:intro}
+% ===========================================================================
+
+Distributed systems in production environments face a class of faults that are
+particularly insidious: \emph{slow faults}~\cite{xinda,gunawi-cbs}. Unlike
+crash failures, which are immediately detectable, slow faults manifest as
+transient performance degradations: a network link experiencing microsecond
+delays, a disk taking milliseconds longer to complete I/O, or a CPU being
+temporarily throttled. These degradations are often below monitoring thresholds
+yet sufficient to trigger cascading failures in consensus protocols, leader
+elections, and replication pipelines~\cite{huang-gray-failure,
+  lu-cloud-reliability}.
+
+Industry reports confirm the severity of this problem. Google's Disruptive
+Testing Team found that 22\% of production incidents involved degraded (not
+failed) components~\cite{google-sre-book}. Microsoft Azure's post-mortem
+analysis revealed that gray failures (where a component is in a degraded state
+undetected by health checks) account for significant fractions of customer-impacting
+outages~\cite{huang-gray-failure}. Datadog's 2023 State of Cloud Monitoring
+report documents that median alert thresholds across their customer base are
+1--5\,s for network latency anomalies~\cite{datadog-monitoring}, creating a
+blind spot for sub-second degradations.
+
+The \xinda{} system~\cite{xinda} (NSDI~'25) made an important contribution by
+providing an automated pipeline to systematically explore the impact of slow
+faults on distributed systems. However, \xinda{} operates in a
+\emph{configured} mode: operators define a severity grid (\eg{},
+\texttt{slow-100$\mu$s} through \texttt{slow-1s} in 37 discrete steps), and
+the system exhaustively tests each point. This approach has three fundamental
+limitations:
+
+\begin{enumerate}[leftmargin=*,topsep=4pt,itemsep=2pt]
+  \item \textbf{Grid incompleteness.} Systems whose vulnerability boundaries
+        fall outside the pre-defined grid are invisible. Redis Cluster, for
+        example, requires 2.7\,s of sustained delay to trigger PFAIL, which is
+        entirely outside \xinda{}'s 100\,$\mu$s--1\,s range. Similarly, filesystem
+        fault boundaries for batch-oriented systems (Hadoop, Kafka) often
+        exceed standard grid ranges.
+  \item \textbf{No minimization.} \xinda{} answers ``does the fault reproduce
+        at each grid point?'' (binary yes/no per severity level), but never
+        identifies the \emph{minimal} fault configuration (the tightest
+        bound on the dangerous region). For systems sensitive at all grid points,
+        \xinda{} reports the lowest grid value (100\,$\mu$s) as its bound,
+        but the true boundary may be lower still.
+  \item \textbf{Grid design burden.} Different systems require different grids
+        (Redis needs higher severity values than etcd), defeating the purpose
+        of automation and requiring domain expertise from operators.
+\end{enumerate}
+
+We present \system{}, a symptom-guided fault reproduction orchestrator that
+addresses these limitations. Given a production issue symptom (expressed as a
+\emph{symptom oracle}, a declarative specification of log patterns indicating
+reproduction), \system{} automatically searches for and \emph{minimizes} a
+fault trial that reproduces the symptom. The key insight is that fault
+vulnerability boundaries can be efficiently located using binary search over
+continuous parameter spaces, rather than exhaustive enumeration over discrete
+grids.
+
+\system{}'s core algorithm is a \emph{greedy dimensional minimizer} that
+operates in four phases: (1)~eliminate unnecessary faults from multi-fault
+trials, (2)~binary-search minimum severity per remaining fault,
+(3)~binary-search minimum duration, and (4)~binary-search latest start time.
+Each phase uses $O(\log_2 n)$ trials to converge on the boundary in its
+dimension, producing a practical upper bound on the minimal fault recipe that
+is both human-interpretable and CI-actionable. While binary search itself is
+standard, applying it effectively to distributed system fault testing requires
+addressing several practical challenges: validating the monotonicity assumption
+empirically (non-determinism in real systems introduces noise), decomposing a
+multi-dimensional parameter space into independent searchable dimensions, and
+integrating the search into a full lifecycle pipeline (container orchestration,
+fault injection, log collection, oracle evaluation) that must execute reliably
+across diverse systems.
+
+We evaluate \system{} across ten widely-deployed distributed systems spanning
+five fault types (network, filesystem, CPU, memory, process). Our results show:
+
+\begin{itemize}[leftmargin=*,topsep=4pt,itemsep=2pt]
+  \item \system{} uses \textbf{52\% fewer trials} on average than \xinda{}'s
+        exhaustive grid across all system--fault configurations, with consistent
+        speedups of 1.8--2.4$\times$ in wall-clock time.
+  \item \system{} discovers vulnerabilities \textbf{outside fixed grids} in
+        7 of 50 configurations, including Redis's 2.7\,s network boundary,
+        Hadoop's 1.2\,s filesystem boundary, and Kafka's 850\,ms replication
+        boundary.
+  \item Consensus-based systems (etcd, ZooKeeper, MongoDB, TiKV, CockroachDB)
+        universally exhibit catastrophic failure boundaries at
+        \textbf{sub-20\,ms} network delay, which is 250$\times$ below documented
+        industry alerting thresholds~\cite{datadog-monitoring,google-sre-book}.
+  \item \textbf{Multi-fault interactions} lower individual boundaries by up to
+        40\%: combining network + filesystem faults on etcd reduces the network
+        boundary from 19.5\,ms to 12.1\,ms.
+  \item Results are \textbf{stable across repeated runs}: five independent
+        trials per configuration yield coefficient of variation $<$5\% for
+        network faults and $<$12\% for filesystem faults.
+\end{itemize}
+
+\noindent\textbf{Contributions.} This paper makes three contributions:
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item The design and implementation of \system{}, a symptom-guided
+        orchestrator that produces minimal fault recipes through greedy
+        dimensional reduction (\S\ref{sec:design}--\S\ref{sec:impl}).
+  \item A comprehensive evaluation across 10 systems $\times$ 5 fault types,
+        demonstrating efficiency gains, boundary discovery beyond fixed grids,
+        and result stability (\S\ref{sec:eval}).
+  \item Empirical characterization of slow-fault danger zones across the
+        distributed systems ecosystem, revealing that sub-20\,ms network
+        perturbations (routine in cloud environments) universally destabilize
+        consensus protocols (\S\ref{sec:findings}).
+\end{enumerate}

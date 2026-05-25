@@ -1,0 +1,95 @@
+% ===========================================================================
+\section{Key Findings}
+\label{sec:findings}
+% ===========================================================================
+
+Our evaluation reveals cross-cutting patterns with implications for distributed
+system design, deployment, and monitoring.
+
+\subsection{Finding 1: Timeout Architecture Determines Resilience}
+
+The 138$\times$ difference between Redis Cluster's danger zone (2.7\,s) and
+consensus-based systems ($\leq$19.5\,ms) traces to a fundamental architectural
+choice in failure detection:
+
+\begin{table}[t]
+\centering
+\caption{Failure detection architectures and their danger-zone implications.}
+\label{tab:architectures}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+\textbf{Architecture} & \textbf{Boundary} & \textbf{Systems} \\
+\midrule
+Heartbeat-sensitive & $\leq$19.5\,ms & etcd, ZK, MongoDB, \\
+consensus & & TiKV, CockroachDB \\
+\midrule
+$\phi$-accrual & 39\,ms & Cassandra \\
+detector & & \\
+\midrule
+ZK-coordinated & 39--313\,ms & HBase, Hadoop, \\
+session timeout & & Kafka \\
+\midrule
+Explicit timeout & 2.7\,s & Redis Cluster \\
+with gossip & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Heartbeat-sensitive consensus (Raft, ZAB, Multi-Raft) ties liveness
+detection directly to the heartbeat mechanism, providing fast failover
+($<$10\,s) but creating extreme sensitivity to latency perturbation.
+The $\phi$-accrual detector (Cassandra) uses statistical modeling of
+inter-arrival times, providing moderate jitter tolerance. ZK-coordinated
+sessions (HBase, Hadoop, Kafka) delegate detection to ZooKeeper session
+timeouts. Redis uses configurable \texttt{cluster-node-timeout} (default
+5\,s) requiring \emph{sustained} unreachability, deliberately trading
+detection speed for jitter tolerance.
+
+This taxonomy suggests a design trade-off: $\text{Detection Latency} \propto
+\text{Jitter Tolerance}$. \system{}'s minimal recipes quantify this
+trade-off precisely, enabling informed decisions about timeout configuration.
+
+\subsection{Finding 2: Fault Type Sensitivity Varies by Orders of Magnitude}
+
+Across all systems, filesystem fault boundaries are 4--16$\times$ higher than
+network fault boundaries. Network heartbeats have sub-second timeouts, while
+I/O operations are expected to have variable latency and systems configure
+generous timeouts accordingly. HBase is the exception (only 2$\times$ ratio)
+because its WAL writes are in the critical path of RPC handling, directly
+delaying responses that maintain ZooKeeper sessions. CPU and memory
+boundaries follow system architecture: Golang-based systems
+(etcd, TiKV, CockroachDB) show slightly more CPU sensitivity due to goroutine
+scheduling, while JVM-based systems require more memory headroom for
+heap and GC.
+
+\subsection{Finding 3: Single-Fault Testing Is Optimistic}
+
+Multi-fault combinations lower individual boundaries by mean 31.4\%
+(range 22--50\%, Section~\ref{sec:multi-fault-eval}). This has a direct CI
+implication: regression tests based on single-fault boundaries may provide
+false confidence. We recommend testing at 70\% of the single-fault boundary:
+\begin{equation}
+\text{CI threshold} = 0.7 \times \text{single-fault boundary}
+\end{equation}
+
+\subsection{Finding 4: The Minimizer Is CI-Practical}
+
+\system{}'s 17--18 iterations per configuration require 7--14 minutes per
+system (including full cluster lifecycle). Total wall time for all 10 systems
+under one fault type: 99 minutes. All five fault types across 10 systems:
+$\sim$8 hours. A nightly CI job produces up-to-date fault specifications in
+under one shift. Weekly runs track boundary drift across versions,
+configuration changes, and infrastructure updates.
+
+\subsection{Finding 5: Monitoring Must Operate at ms Granularity}
+
+The sub-20\,ms danger zones for consensus systems are 250$\times$ below
+typical production alerting thresholds. Industry platforms document default
+alert configurations of 1--5\,s for network latency
+anomalies~\cite{datadog-monitoring,pagerduty-best-practices,google-sre-book}.
+This gap means slow faults in the 20\,ms--5\,s range will trigger catastrophic
+leader elections without generating any alert. We recommend P99 latency
+tracking at 10\,ms resolution for consensus-bearing links, with separate
+monitoring tiers for consensus links (10\,ms SLO) vs.\ data links (100\,ms
+SLO).

@@ -1,0 +1,23 @@
+% ===========================================================================
+\begin{abstract}
+% ===========================================================================
+
+Slow faults (transient performance degradations such as network delays, disk
+stalls, and CPU throttling) are a leading cause of catastrophic failures in
+production distributed systems. Existing tools explore the \emph{impact} of
+slow faults using exhaustive grid search but cannot characterize the
+\emph{minimal} fault that triggers a vulnerability. We present \system{}, a
+symptom-guided orchestrator that automatically synthesizes minimal fault
+recipes through greedy dimensional reduction with binary search, converging in
+$O(\log_2 n)$ iterations per dimension.
+
+We evaluate \system{} across 10 production systems and 5 fault types (50
+configurations). \system{} uses 52\% fewer trials and completes 2.1$\times$
+faster than exhaustive grids while discovering vulnerabilities outside fixed
+grids (7 of 50 configurations). Consensus-based systems universally exhibit
+failure boundaries at sub-20\,ms network delay, 250$\times$ below industry
+alerting thresholds. Multi-fault experiments show combined faults lower
+boundaries by up to 40\% (mean 31.4\%). Results are stable across repeated
+runs (CV $<$5\%).
+
+\end{abstract}

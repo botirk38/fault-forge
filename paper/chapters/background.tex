@@ -1,0 +1,133 @@
+% ===========================================================================
+\section{Background and Motivation}
+\label{sec:background}
+% ===========================================================================
+
+\subsection{Slow Faults in Distributed Systems}
+
+Slow faults represent a spectrum of performance degradations that fall between
+normal operation and complete failure~\cite{huang-gray-failure}. Unlike crash
+faults, which trigger immediate failover, slow faults can persist undetected
+while progressively destabilizing system invariants. Prior work has identified
+several categories~\cite{xinda,gunawi-cbs}:
+
+\para{Network slow faults} Additional latency on network links due to
+congestion, switch buffers, or NIC issues. Even microsecond-scale delays can
+disrupt heartbeat-based failure detectors~\cite{raft,zab}. Cloud providers
+report tail latency spikes of 1--10\,ms multiple times per day on inter-AZ
+links~\cite{dean-tail-latency}.
+
+\para{Filesystem slow faults} Increased I/O latency from disk degradation or
+journaling contention, particularly affecting WAL performance.
+Storage-related performance bugs account for 25\% of cloud system
+issues~\cite{lu-cloud-reliability}.
+
+\para{CPU slow faults} Resource throttling from cgroup limits or noisy
+neighbors that starve critical threads. Kubernetes CPU throttling affects
+over 60\% of production containers~\cite{datadog-monitoring}.
+
+\para{Memory pressure faults} Reduced memory forcing GC pauses in JVM-based
+systems, page cache eviction, or swap thrashing, creating cascading slowdowns.
+
+\para{Process faults} Container restarts causing temporary unavailability,
+where the \emph{timing} relative to in-flight operations determines impact.
+
+\subsection{Xinda: Exhaustive Grid Exploration}
+\label{sec:xinda-background}
+
+\xinda{}~\cite{xinda} (NSDI~'25) provides the most comprehensive framework for
+automated slow-fault testing. Its \emph{danger-zone} exploration uses a fixed
+severity grid to systematically evaluate system behavior under increasing fault
+intensity. The pipeline:
+
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item Deploys the target system in Docker containers using pre-built images.
+  \item Injects faults at each grid severity using Blockade (\texttt{tc netem})
+        for network or CharybdeFS (FUSE) for filesystem.
+  \item Executes a benchmark workload (YCSB, system-specific, or custom).
+  \item Collects logs and metrics during execution.
+  \item Reports which grid points trigger observable failures.
+\end{enumerate}
+
+The network danger-zone grid consists of 37 discrete values from
+\texttt{slow-100$\mu$s} to \texttt{slow-1s}:
+
+\begin{center}
+\small
+\texttt{100$\mu$s, 200$\mu$s, \ldots, 900$\mu$s, 1ms, 2ms, \ldots, 9ms,
+10ms, 20ms, \ldots, 90ms, 100ms, 200ms, \ldots, 1s}
+\end{center}
+
+This approach is thorough for systems whose boundaries fall within the grid,
+but has structural limitations:
+
+\para{Fixed range} The grid covers exactly 100\,$\mu$s to 1\,s. Systems with
+boundaries above 1\,s (Redis at 2.7\,s) or below 100\,$\mu$s produce
+uninformative results (either all-miss or all-hit across the entire grid).
+
+\para{Fixed granularity} Grid spacing is non-uniform (100\,$\mu$s steps at the
+low end, 100\,ms steps at the high end). The actual boundary resolution depends
+on where in the grid the boundary falls.
+
+\para{No directionality} \xinda{} tests all 37 points regardless of results.
+If the first point reproduces, the remaining 36 trials provide diminishing
+information.
+
+\para{System-agnostic grid} The same grid is applied to all systems. This is
+efficient for systems with boundaries in the 1--100\,ms range but wasteful for
+both very sensitive systems (boundary $\ll$ 100\,$\mu$s) and very tolerant
+systems (boundary $\gg$ 1\,s).
+
+\subsection{Problem Statement}
+\label{sec:problem}
+
+Given:
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item A distributed system $S$ deployed in containers.
+  \item A symptom oracle $O$ that evaluates logs and returns
+        \emph{reproduced}/\emph{not reproduced}.
+  \item A fault parameter space $\mathcal{F}$ with dimensions: type, location,
+        severity, duration, start time.
+\end{itemize}
+
+Find: A fault configuration $f^* \in \mathcal{F}$ such that:
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item $O(S, f^*) = \text{reproduced}$ (correctness).
+  \item For each dimension $d$ of $f^*$, reducing $d$ causes
+        $O(S, f') = \text{not reproduced}$ (local minimality).
+  \item The total number of trial executions is minimized (efficiency).
+\end{enumerate}
+
+\noindent This formulation produces a \emph{locally minimal} recipe, minimal
+along each dimension independently. Finding the \emph{globally minimal} recipe
+(Pareto-optimal across all dimensions simultaneously) would require exponential
+trials; we show that local minimality is sufficient for practical use.
+
+\subsection{Motivating Observations}
+
+Three observations motivate \system{}'s design:
+
+\para{Observation 1: Fault effects are monotone} For additive faults (network
+delay via \texttt{tc netem}, filesystem latency via injection), the effect is
+monotonically non-decreasing with severity. If injecting 20\,ms delay causes
+a leader election, then 25\,ms, 50\,ms, and 100\,ms also cause it because the
+higher delay strictly subsumes the lower. This \emph{monotonicity property} enables
+binary search over continuous severity ranges.
+
+We formalize this as: for fault parameter $s$ and oracle $O$, if $O(s_1) =
+\text{reproduced}$ and $s_2 > s_1$, then $O(s_2) = \text{reproduced}$. We
+validate this assumption empirically across all 10 systems in
+Section~\ref{sec:monotonicity}.
+
+\para{Observation 2: Precision adapts to budget} A binary search with $k$
+iterations over range $[0, S_{\max}]$ produces precision $S_{\max}/2^k$. With
+8 iterations from 5000\,ms, precision is 19.5\,ms. With 12 iterations, it is
+1.2\,ms. Operators can choose their precision--time trade-off explicitly,
+unlike fixed grids where precision is predetermined by grid design.
+
+\para{Observation 3: Minimal recipes are more actionable} A recipe stating
+``19.5\,ms network delay for 30\,s triggers leader election'' is directly
+useful for: (a)~CI regression tests that verify the boundary hasn't shifted,
+(b)~SLA definitions that set alerting below the boundary, and (c)~architectural
+decisions about timeout configuration. The recipe format is a concrete,
+executable specification.

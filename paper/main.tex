@@ -1,0 +1,91 @@
+% FaultForge: Symptom-Guided Minimal Fault Recipe Synthesis
+% for Distributed Systems
+%
+% Target venue: USENIX NSDI / ATC / OSDI (systems conference)
+%
+% Structure: Each section lives in chapters/ for easy editing.
+
+\documentclass[letterpaper,twocolumn,10pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{mathptmx}
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage[margin=1in]{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,shapes.geometric,fit,calc}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!70!black,
+  citecolor=blue!70!black,
+  urlcolor=blue!70!black,
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black}\itshape,
+  stringstyle=\color{red!70!black},
+  showstringspaces=false,
+}
+
+% Custom commands
+\newcommand{\system}{\textsc{FaultForge}}
+\newcommand{\xinda}{\textsc{Xinda}}
+\newcommand{\anduril}{\textsc{Anduril}}
+\newcommand{\ie}{\emph{i.e.}}
+\newcommand{\eg}{\emph{e.g.}}
+\newcommand{\etal}{\emph{et al.}}
+\newcommand{\para}[1]{\smallskip\noindent\textbf{#1.}}
+
+\title{\Large\textbf{FaultForge: Symptom-Guided Minimal Fault Recipe\\Synthesis for Distributed Systems}}
+
+\author{
+  \textit{Anonymous Authors}
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+% --- Paper sections (one file per chapter for easy editing) ---
+
+\input{chapters/abstract}
+\input{chapters/introduction}
+\input{chapters/background}
+\input{chapters/design}
+\input{chapters/implementation}
+\input{chapters/evaluation}
+\input{chapters/findings}
+\input{chapters/discussion}
+\input{chapters/related}
+\input{chapters/conclusion}
+
+% --- Bibliography ---
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
