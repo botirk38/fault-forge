@@ -1,0 +1,133 @@
+% ===========================================================================
+\section{Related Work}
+\label{sec:related}
+% ===========================================================================
+
+\subsection{Slow Fault Testing}
+
+\para{Xinda} Ganesan~\etal{}~\cite{xinda} (NSDI~'25) introduced systematic
+slow-fault testing through exhaustive grid exploration. \xinda{} provides a
+comprehensive pipeline for deploying systems, injecting faults at configured
+severities, and reporting danger zones. \system{} builds on \xinda{}'s insight
+that slow faults are a critical yet under-tested failure class, but replaces
+exhaustive enumeration with adaptive binary search to achieve minimization with
+fewer trials. \system{} is complementary to \xinda{}: operators can use
+\xinda{}'s grid for initial exploration and \system{}'s minimizer for precise
+boundary characterization.
+
+\para{Anduril} Yao~\etal{}~\cite{anduril} (ATC~'25) targets \emph{crash
+and exception} bugs using feedback-directed fault injection. \anduril{} builds
+a causal DAG from runtime traces and preferentially injects faults at high-impact
+points. Unlike \system{}, \anduril{} requires source-level instrumentation,
+targets discrete event triggers rather than sustained degradation, and does not
+produce minimal severity characterizations.
+
+\para{PRE-FAIL} Joshi~\etal{}~\cite{prefail} proposed programmable failure
+injection at the I/O boundary. PRE-FAIL intercepts filesystem and network calls
+to inject configured failures, enabling precise control over failure timing.
+However, PRE-FAIL requires application modification (linking against its library)
+and does not include minimization or systematic exploration.
+
+\subsection{Fault Injection Frameworks}
+
+\para{Jepsen} Kingsbury~\cite{jepsen} provides a comprehensive framework
+for testing distributed systems' consistency guarantees under network
+partitions and node failures. Jepsen focuses on \emph{correctness} (safety
+violations) rather than \emph{performance} (liveness violations under
+degradation). \system{} targets the complementary problem of characterizing
+\emph{how much} degradation triggers visible failure, not whether the system
+maintains consistency.
+
+\para{Chaos Monkey and Chaos Engineering} Netflix's Chaos Monkey~\cite{chaos-monkey}
+and the broader chaos engineering movement~\cite{chaos-engineering-book}
+inject failures in production to validate resilience. These tools verify
+that systems \emph{survive} random failures but do not characterize minimal
+triggers or produce boundary specifications. \system{}'s minimal recipes
+could inform chaos engineering experiments by targeting the most critical
+severity range.
+
+\para{Gremlin} Commercial fault injection platform providing network, resource,
+and state faults~\cite{gremlin}. Gremlin enables scenario-based testing but
+relies on manual scenario design. \system{}'s automated minimization
+complements manual scenario tools by discovering the minimal configurations
+that actually trigger failures.
+
+\para{LitmusChaos} Cloud-native chaos engineering framework for Kubernetes
+environments~\cite{litmuschaos}. Provides a library of pre-built chaos
+experiments (pod kill, network loss, disk fill) with GitOps-based workflow.
+Like other chaos tools, focuses on binary pass/fail testing rather than
+boundary characterization.
+
+\subsection{Lineage-Driven Fault Injection}
+
+\para{Molly/LDFI} Alvaro~\etal{}~\cite{alvaro-molly,alvaro-ldfi} introduced
+lineage-driven fault injection, which uses data provenance to identify faults
+that may violate program outcomes. LDFI works backward from a successful
+outcome to find minimal fault combinations that break it. While conceptually
+similar to minimization, LDFI operates on discrete message-level faults
+(dropped/delayed messages) rather than continuous severity parameters, and
+requires a formal specification of program correctness. \system{}'s
+symptom-guided oracle is a lightweight alternative to formal specifications.
+
+\para{Filibuster} Meiklejohn~\etal{}~\cite{filibuster} adapt LDFI to
+microservice architectures, injecting RPC-level failures guided by service
+dependency analysis. Filibuster targets inter-service communication failures
+(timeouts, HTTP errors) rather than intra-cluster consensus degradation.
+The two approaches are complementary: Filibuster for service mesh resilience,
+\system{} for individual system fault boundaries.
+
+\subsection{Delta Debugging and Minimization}
+
+\para{Delta debugging} Zeller and Hildebrandt~\cite{zeller-delta-debugging}
+introduced automated test case minimization for crash-reproducing inputs.
+Given a failing test input, delta debugging systematically removes portions
+until a minimal reproducing input remains. \system{}'s greedy dimensional
+minimizer is conceptually related but operates over continuous fault parameters
+rather than discrete input elements, and uses binary search rather than
+ddmin's divide-and-partition strategy.
+
+\para{C-Reduce} Regehr~\etal{}~\cite{creduce} extended delta debugging with
+transformation-based reduction for compiler bug test cases. C-Reduce's
+multi-pass strategy (each pass applies a different reduction transformation)
+inspired \system{}'s phase-based approach (each phase reduces a different fault
+dimension).
+
+\para{Test case prioritization} Rothermel~\etal{}~\cite{rothermel-tcp}
+address the problem of ordering test cases for early fault detection. While
+\system{} does not prioritize existing tests, its binary search strategy
+implicitly front-loads the most informative trials (mid-range values that
+maximally divide the search space).
+
+\subsection{Gray Failure and Partial Failures}
+
+\para{Gray failure} Huang~\etal{}~\cite{huang-gray-failure} characterized
+``gray failures'' where system components enter degraded states undetected
+by health checks. Their taxonomy (observation gap, reaction gap) directly
+motivates \system{}: our minimal recipes quantify exactly where the
+observation gap begins (the severity below which degradation is undetectable
+by current monitoring).
+
+\para{Fail-slow hardware} Gunawi~\etal{}~\cite{gunawi-cbs} cataloged
+``fail-slow'' hardware incidents in production cloud systems, finding that
+storage and network devices frequently enter degraded-performance states.
+Their taxonomy informs our fault model: network, filesystem, CPU, and
+memory faults correspond to the most common fail-slow categories.
+
+\para{Cloud reliability studies} Lu~\etal{}~\cite{lu-cloud-reliability}
+analyzed 597 cloud system failures and found that 33\% involved
+performance-related issues rather than hard crashes. Their finding that
+``performance bugs are harder to detect, diagnose, and fix'' motivates
+\system{}'s focus on making slow-fault boundaries explicit and testable.
+
+\subsection{Distributed System Testing}
+
+\para{SAMC/FlyMC} Leesatapornwongsa~\etal{}~\cite{leesatapornwongsa-samc}
+use semantic-aware model checking to explore distributed system state spaces.
+While thorough, model checking targets correctness bugs (safety violations)
+in the message-passing layer rather than performance boundaries under
+degradation.
+
+\para{CrashTuner} Lu~\etal{}~\cite{crashtuner} use static analysis to identify
+crash-sensitive code paths and inject targeted failures. Like \anduril{},
+CrashTuner targets crash/exception bugs with discrete triggers rather than
+continuous performance degradation.

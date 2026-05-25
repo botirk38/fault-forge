@@ -1,0 +1,277 @@
+% ===========================================================================
+\section{Design}
+\label{sec:design}
+% ===========================================================================
+
+\system{} is structured around three core components: the \emph{symptom oracle},
+the \emph{trial runner}, and the \emph{greedy dimensional minimizer}.
+Figure~\ref{fig:architecture} shows the overall architecture.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  node distance=0.8cm and 1.2cm,
+  box/.style={draw, rounded corners, minimum width=2.2cm, minimum height=0.8cm,
+              font=\small, align=center},
+  arrow/.style={-{Stealth[length=2mm]}, thick},
+  lbl/.style={font=\scriptsize, midway, above}
+]
+  % Top: Input
+  \node[box, fill=blue!10] (issue) {Production\\Issue};
+  \node[box, fill=green!10, below=of issue] (oracle) {Symptom\\Oracle};
+
+  % Middle: FaultForge
+  \node[box, fill=orange!10, below left=0.8cm and 0.2cm of oracle] (minimizer) {Greedy\\Minimizer};
+  \node[box, fill=orange!10, below right=0.8cm and 0.2cm of oracle] (runner) {Trial\\Runner};
+
+  % Bottom: Infrastructure
+  \node[box, fill=gray!10, below=1.2cm of runner] (docker) {Docker\\Cluster};
+  \node[box, fill=gray!10, left=0.3cm of docker] (netem) {\texttt{tc netem}\\Injection};
+
+  % Output
+  \node[box, fill=red!10, below=1.2cm of minimizer] (recipe) {Minimal\\Recipe};
+
+  % Arrows
+  \draw[arrow] (issue) -- (oracle);
+  \draw[arrow] (oracle) -- (minimizer);
+  \draw[arrow] (minimizer) -- node[lbl, sloped] {\scriptsize trial} (runner);
+  \draw[arrow] (runner) -- (docker);
+  \draw[arrow] (netem) -- (docker);
+  \draw[arrow] (docker.west) -- +(-0.5,0) |- node[font=\scriptsize, near start, right] {logs} (oracle.west);
+  \draw[arrow] (minimizer) -- (recipe);
+  \draw[arrow] (runner.west) -- +(-0.3,0) |- (minimizer.east);
+\end{tikzpicture}
+\caption{\system{} architecture. The minimizer iteratively submits trials to the
+runner, which executes them against real Docker clusters with \texttt{tc netem}
+fault injection. The oracle evaluates collected logs to determine reproduction,
+feeding scores back to guide the binary search. The output is a minimal fault
+recipe suitable for CI integration.}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Symptom Oracle}
+\label{sec:oracle}
+
+The symptom oracle is a declarative specification that determines whether a
+trial successfully reproduced a production issue. It provides a clean
+separation between \emph{what} constitutes reproduction (domain knowledge)
+and \emph{how} to find minimal triggers (search algorithm).
+
+An oracle consists of three components:
+
+\para{Issue metadata} Identifies the target issue: system, issue ID, title,
+category (slow-fault, crash, correctness), and optional source link to the
+upstream bug tracker.
+
+\para{Validity rules} (\texttt{invalid\_if}) Conditions indicating infrastructure
+failure rather than system behavior. If Docker Compose fails to start, or the
+benchmark crashes before fault injection, the trial is \emph{invalid} and
+excluded from scoring. This prevents the minimizer from converging on
+configurations that simply break the test harness.
+
+\para{Reproduction rules} (\texttt{reproduced\_if}) Log patterns indicating
+the target symptom was triggered. Rules support:
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \texttt{contains}: Exact substring match in specified log file.
+  \item \texttt{regex}: Regular expression match with capture groups.
+  \item \texttt{any}: Disjunction---any matching rule suffices.
+  \item \texttt{all}: Conjunction---all rules must match.
+  \item Nested groups for complex logic.
+\end{itemize}
+
+\begin{lstlisting}[language={},caption={Example oracle for etcd Raft election.},label={lst:oracle}]
+issue:
+  id: "ETCD-RAFT-ELECTION"
+  system: "etcd"
+  title: "Leader election cascade under
+          network delay"
+  source: "github.com/etcd-io/etcd/issues/18109"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "raft.*elected leader"
+    - file: compose
+      regex: "the leader changed"
+    - file: compose
+      regex: "elected.*term"
+
+severity_threshold: 1
+\end{lstlisting}
+
+\para{Scoring} The oracle returns a score $s \in [0, 1]$ computed as:
+\begin{equation}
+s = \min\left(\frac{|\text{matched signals}|}{\text{severity\_threshold}}, 1.0\right)
+\end{equation}
+
+The minimizer uses $s \geq 0.5$ as the reproduction threshold ($\theta$). This
+provides robustness against transient log noise: a trial that matches some but
+not all expected signals is still considered reproducing if it exceeds half the
+threshold. We evaluate oracle precision and recall in Section~\ref{sec:oracle-eval}.
+
+\subsection{Trial Model}
+\label{sec:trial-model}
+
+A \emph{trial} is the atomic unit of execution: a complete specification of
+system configuration, workload, and fault injection.
+
+\begin{equation}
+\text{Trial} = \langle \text{System}, \text{Benchmark}, \text{Faults} \rangle
+\end{equation}
+
+\noindent where:
+\begin{align}
+\text{System} &= \langle \text{name}, \text{version}, \text{cluster\_size} \rangle \\
+\text{Benchmark} &= \langle \text{name}, \text{exec\_time\_s} \rangle \\
+\text{Fault} &= \langle \text{type}, \text{location}, \text{severity}, \text{duration}, \text{start} \rangle
+\end{align}
+
+Each fault is parameterized by five dimensions:
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{type} $\in$ \{nw, fs, cpu, mem, process\}: The fault class.
+  \item \textbf{location}: Target node identifier (\eg{}, ``leader'', ``node1'').
+  \item \textbf{severity}: Fault intensity, type-specific (\eg{},
+        \texttt{slow-5ms} for network, \texttt{cpus-0.25} for CPU).
+  \item \textbf{duration}: Injection time in seconds.
+  \item \textbf{start}: Delay before injection begins (seconds after benchmark start).
+\end{itemize}
+
+A trial with multiple faults ($|\text{Faults}| > 1$) enables testing of
+\emph{fault interactions}---\eg{}, simultaneous network delay on two nodes, or
+combined network + filesystem degradation on a single node.
+
+\subsection{Greedy Dimensional Minimizer}
+\label{sec:minimizer}
+
+The minimizer is \system{}'s key algorithmic contribution. Given a reproducing
+trial $T_0$ (where the oracle confirms the symptom), it iteratively reduces
+fault parameters to find $T_{\min}$---a locally minimal trial that still
+reproduces.
+
+\begin{algorithm}[t]
+\caption{Greedy Dimensional Minimization}
+\label{alg:minimizer}
+\begin{algorithmic}[1]
+\Require Reproducing trial $T_0$, oracle $O$, budget $B$
+\Ensure Locally minimal reproducing trial $T_{\min}$
+\State $T \gets T_0$
+\Statex
+\State \Comment{\textbf{Phase 1: Reduce fault count}}
+\For{$i = |T.\text{faults}|$ \textbf{downto} 1}
+  \State $T' \gets T$ with fault $i$ removed
+  \If{$O(\text{run}(T')) \geq \theta$}
+    \State $T \gets T'$ \Comment{fault $i$ unnecessary}
+  \EndIf
+\EndFor
+\Statex
+\State \Comment{\textbf{Phase 2: Minimize severity (binary search)}}
+\For{each remaining fault $f_i \in T.\text{faults}$}
+  \State $lo \gets 0, \; hi \gets \text{magnitude}(f_i.\text{severity})$
+  \For{$k = 1$ \textbf{to} $B_{\text{mag}}$}
+    \State $mid \gets (lo + hi) / 2$
+    \State $T' \gets T$ with $f_i.\text{severity} \gets \text{build}(mid)$
+    \If{$O(\text{run}(T')) \geq \theta$}
+      \State $hi \gets mid$ \Comment{can go lower}
+    \Else
+      \State $lo \gets mid$ \Comment{too low, go higher}
+    \EndIf
+  \EndFor
+  \State $T \gets T$ with $f_i.\text{severity} \gets \text{build}(hi)$
+\EndFor
+\Statex
+\State \Comment{\textbf{Phase 3: Minimize duration (binary search)}}
+\For{each fault $f_i \in T.\text{faults}$}
+  \State Binary search over $[1, f_i.\text{duration\_s}]$
+  \State Update $f_i.\text{duration\_s} \gets \text{min found}$
+\EndFor
+\Statex
+\State \Comment{\textbf{Phase 4: Maximize start time (binary search)}}
+\For{each fault $f_i \in T.\text{faults}$}
+  \State Binary search over $[f_i.\text{start\_s}, \text{max\_start}]$
+  \State Update $f_i.\text{start\_s} \gets \text{max found that reproduces}$
+\EndFor
+\State \Return $T$
+\end{algorithmic}
+\end{algorithm}
+
+\para{Phase ordering} The phases are ordered by expected impact: fault count
+reduction eliminates entire faults (largest effect), severity reduction
+narrows the primary parameter, duration reduction shortens exposure time, and
+timing optimization finds the latest trigger point. This greedy ordering
+maximizes reduction per trial spent.
+
+\para{Correctness invariant} The algorithm maintains the invariant that $T$
+always reproduces (oracle score $\geq \theta$) at each phase boundary. Binary
+search within a phase may temporarily produce non-reproducing candidates (when
+$lo$ increases), but the final value ($hi$) is always reproducing.
+
+\para{Complexity} For a trial with $k$ faults and budget parameters
+$B_{\text{mag}}, B_{\text{dur}}, B_{\text{time}}$:
+\begin{equation}
+\text{Total iterations} \leq k + k \cdot (B_{\text{mag}} + B_{\text{dur}} + B_{\text{time}}) + 1
+\end{equation}
+
+With default configuration ($B_{\text{mag}}=8$, $B_{\text{dur}}=5$,
+$B_{\text{time}}=5$) and a single-fault trial ($k=1$), the maximum is 19
+iterations. Empirically we observe 17--18 (the initial verification trial
+uses 1 iteration, and phases that converge early return budget to later phases).
+
+\para{Precision guarantee} After $B_{\text{mag}}$ binary search steps over
+range $[0, S_{\max}]$, the converged severity satisfies:
+\begin{equation}
+|s_{\text{converged}} - s_{\text{true}}| \leq \frac{S_{\max}}{2^{B_{\text{mag}}}}
+\end{equation}
+
+For $S_{\max} = 5000$\,ms and $B_{\text{mag}} = 8$: precision = 19.5\,ms.
+For the same budget from $S_{\max} = 10000$\,ms (Redis): precision = 39\,ms.
+This precision is a \emph{configurable} property---operators trade iterations
+for tighter bounds.
+
+\para{Monotonicity assumption} Binary search requires that the oracle response
+is monotone with severity: if $O(s) = \text{reproduced}$, then
+$\forall s' > s: O(s') = \text{reproduced}$. We validate this assumption
+empirically (Section~\ref{sec:monotonicity}) and discuss conditions under which
+it may be violated (Section~\ref{sec:limitations}).
+
+\subsection{Search Strategy Layer}
+\label{sec:search}
+
+Before minimization, \system{} needs a reproducing trial as input. The
+\emph{search} layer provides this by exploring the fault parameter space:
+
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{Exhaustive grid}: Cartesian product of all parameter values,
+        tested in lexicographic order.
+  \item \textbf{Shuffled grid}: Same space, randomized traversal order to
+        avoid systematic bias.
+  \item \textbf{Random subset}: Uniform random sample from the full grid,
+        bounded by a trial budget.
+\end{itemize}
+
+In practice, operators typically know a high-severity configuration that
+reproduces (\eg{}, ``5\,s delay always triggers election''). \system{}'s
+minimizer starts from this known-good configuration, eliminating the need for
+an initial search phase in most use cases.
+
+\subsection{Multi-Fault Minimization}
+\label{sec:multi-fault}
+
+For trials with multiple simultaneous faults, Phase~1 (fault count reduction)
+attempts to eliminate each fault while preserving reproduction. This identifies
+which faults are \emph{necessary} for the symptom and which are redundant.
+
+The interaction effects of multi-fault trials create a non-trivial search
+problem: fault $A$ alone may not reproduce, fault $B$ alone may not reproduce,
+but $A + B$ together may reproduce through interaction. \system{}'s greedy
+approach handles this correctly---it only removes a fault if the remaining
+faults still reproduce, preserving necessary interactions.
+
+After count reduction, the per-fault binary search in Phases 2--4 minimizes
+each remaining fault independently. This produces a locally minimal multi-fault
+recipe: no single fault can be further reduced without losing reproduction.
