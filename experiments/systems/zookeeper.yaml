@@ -1,0 +1,39 @@
+name: zookeeper
+image: zookeeper:3.8
+cluster_size: 3
+startup_wait_s: 10
+post_inject_wait_s: 12
+node_map:
+  node1: zk1
+  node2: zk2
+  node3: zk3
+  leader: zk1
+  follower: zk2
+start_commands:
+  - >-
+    docker run -d --name zk1 --net {network}
+    -e ZOO_MY_ID=1
+    -e ZOO_SERVERS='server.1=zk1:2888:3888;2181
+    server.2=zk2:2888:3888;2181
+    server.3=zk3:2888:3888;2181'
+    {image}
+  - >-
+    docker run -d --name zk2 --net {network}
+    -e ZOO_MY_ID=2
+    -e ZOO_SERVERS='server.1=zk1:2888:3888;2181
+    server.2=zk2:2888:3888;2181
+    server.3=zk3:2888:3888;2181'
+    {image}
+  - >-
+    docker run -d --name zk3 --net {network}
+    -e ZOO_MY_ID=3
+    -e ZOO_SERVERS='server.1=zk1:2888:3888;2181
+    server.2=zk2:2888:3888;2181
+    server.3=zk3:2888:3888;2181'
+    {image}
+workload_command: >-
+  docker exec zk1 /apache-zookeeper-3.8.4-bin/bin/zkCli.sh
+  -server localhost:2181 create /test data 2>&1
+stop_commands:
+  - docker rm -f zk1 zk2 zk3
+  - docker network rm {network}

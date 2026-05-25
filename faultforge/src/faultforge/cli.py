@@ -26,6 +26,7 @@ from faultforge.trial import (
     BenchmarkConfig,
     SlowFaultKind,
     SystemConfig,
+    Trial,
     fault_info,
     load_trial,
 )
@@ -402,14 +403,14 @@ def minimize_cmd(
 
 @main.command("live-minimize")
 @click.option(
-    "--system",
-    type=str,
+    "--spec",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
-    help="Target system name (etcd, zookeeper, mongodb, redis, tikv, cassandra, kafka).",
+    help="YAML system spec file defining the Docker cluster lifecycle.",
 )
 @click.option(
     "--oracle",
-    type=click.Path(dir_okay=False, path_type=Path),
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
     required=True,
     help="YAML oracle definition file.",
 )
@@ -421,7 +422,7 @@ def minimize_cmd(
 @click.option("--log-dir", type=click.Path(path_type=Path), default=None)
 @click.option("--json", "output_json", is_flag=True, default=False)
 def live_minimize_cmd(
-    system: str,
+    spec: Path,
     oracle: Path,
     location: str,
     fault_type: str,
@@ -433,51 +434,68 @@ def live_minimize_cmd(
 ) -> None:
     """Run the minimizer against real Docker containers."""
     import logging
+    import time as _time
 
-    from faultforge.live.orchestrator import run_minimization
+    from faultforge.live.runner import LiveRunner
+    from faultforge.live.systems import SystemSpec
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-    result = run_minimization(
-        system=system,
-        oracle_path=oracle,
-        fault_type=fault_type,
-        location=location,
-        initial_severity=initial_severity,
-        initial_duration_s=initial_duration,
+    system_spec = SystemSpec.from_file(spec)
+    oracle_obj = Oracle.from_file(oracle)
+    runner = LiveRunner(system_spec, log_dir=str(log_dir) if log_dir else None)
+    config = MinimizationConfig(
         max_iterations=max_iterations,
-        log_dir=str(log_dir) if log_dir else None,
+        score_threshold=0.5,
+        magnitude_steps=8,
+        duration_steps=5,
+        timing_steps=3,
     )
+    minimizer = Minimizer(runner=runner, oracle=oracle_obj, config=config)
+
+    fault_kind = cast(SlowFaultKind, fault_type)
+    trial: Trial = {
+        "trial_id": f"{system_spec.name}-minimize-{int(_time.time())}",
+        "system": {"name": system_spec.name},
+        "benchmark": {"name": "default"},
+        "faults": [
+            {
+                "fault_type": fault_kind,
+                "location": location,
+                "duration_s": initial_duration,
+                "severity": initial_severity,
+                "start_s": 0,
+                "if_restart": False,
+            }
+        ],
+    }
+
+    start = _time.time()
+    m = minimizer.minimize(trial)
+    wall_time = _time.time() - start
 
     if output_json:
         click.echo(
             json.dumps(
                 {
-                    "system": result.system,
-                    "oracle_id": result.oracle_id,
+                    "system": system_spec.name,
+                    "oracle_id": oracle_obj.configured_issue_id,
                     "initial_severity": initial_severity,
                     "minimized_severity": (
-                        result.minimization.minimized["faults"][0]["severity"]
-                        if result.minimization.minimized["faults"]
-                        else None
+                        m.minimized["faults"][0]["severity"] if m.minimized["faults"] else None
                     ),
-                    "iterations_used": result.minimization.iterations_used,
-                    "reductions": len(result.minimization.reductions),
-                    "final_score": result.minimization.final_score,
-                    "wall_time_s": result.wall_time_s,
-                    "error": result.error,
+                    "iterations_used": m.iterations_used,
+                    "reductions": len(m.reductions),
+                    "final_score": m.final_score,
+                    "wall_time_s": wall_time,
                 },
                 indent=2,
             )
         )
     else:
-        click.echo(f"System: {result.system}")
-        click.echo(f"Oracle: {result.oracle_id}")
-        click.echo(f"Wall time: {result.wall_time_s:.1f}s")
-        if result.error:
-            click.echo(f"ERROR: {result.error}")
-            return
-        m = result.minimization
+        click.echo(f"System: {system_spec.name}")
+        click.echo(f"Oracle: {oracle_obj.configured_issue_id}")
+        click.echo(f"Wall time: {wall_time:.1f}s")
         click.echo(f"Iterations: {m.iterations_used}")
         click.echo(f"Reductions: {len(m.reductions)}")
         click.echo(f"Final score: {m.final_score:.2f}")
@@ -486,78 +504,10 @@ def live_minimize_cmd(
             click.echo("Reduction log:")
             for step in m.reductions:
                 click.echo(
-                    f"  [{step.dimension}] fault[{step.fault_index}]: {step.before} → {step.after}"
+                    f"  [{step.dimension}] fault[{step.fault_index}]:"
+                    f" {step.before} \u2192 {step.after}"
                 )
         click.echo()
         click.echo("Minimal recipe:")
         for i, f in enumerate(m.minimized["faults"]):
             click.echo(f"  [{i}] {fault_info(f)}")
-
-
-@main.command("baseline")
-@click.option(
-    "--system",
-    type=str,
-    required=True,
-    help="Target system name.",
-)
-@click.option(
-    "--oracle",
-    type=click.Path(dir_okay=False, path_type=Path),
-    required=True,
-    help="YAML oracle definition file.",
-)
-@click.option("--location", type=str, default="node1", show_default=True)
-@click.option("--fault-type", type=str, default="nw", show_default=True)
-@click.option("--duration", type=int, default=30, show_default=True)
-@click.option("--max-trials", type=int, default=None)
-@click.option("--log-dir", type=click.Path(path_type=Path), default=None)
-@click.option("--json", "output_json", is_flag=True, default=False)
-def baseline_cmd(
-    system: str,
-    oracle: Path,
-    location: str,
-    fault_type: str,
-    duration: int,
-    max_trials: int | None,
-    log_dir: Path | None,
-    output_json: bool,
-) -> None:
-    """Run Xinda-style exhaustive grid baseline for comparison."""
-    import logging
-
-    from faultforge.live.baseline import run_xinda_baseline
-
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-
-    result = run_xinda_baseline(
-        system=system,
-        oracle_path=str(oracle),
-        location=location,
-        fault_type=fault_type,
-        duration_s=duration,
-        max_trials=max_trials,
-        log_dir=str(log_dir) if log_dir else None,
-    )
-
-    if output_json:
-        click.echo(
-            json.dumps(
-                {
-                    "system": result.system,
-                    "oracle_id": result.oracle_id,
-                    "total_grid_size": result.total_grid_size,
-                    "trials_to_first_hit": result.trials_to_first_hit,
-                    "first_hit_severity": result.first_hit_severity,
-                    "wall_time_s": result.wall_time_s,
-                },
-                indent=2,
-            )
-        )
-    else:
-        click.echo(f"System: {result.system}")
-        click.echo(f"Oracle: {result.oracle_id}")
-        click.echo(f"Grid size: {result.total_grid_size}")
-        click.echo(f"Trials to first hit: {result.trials_to_first_hit}")
-        click.echo(f"First hit severity: {result.first_hit_severity}")
-        click.echo(f"Wall time: {result.wall_time_s:.1f}s")

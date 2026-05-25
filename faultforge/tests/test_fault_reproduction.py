@@ -16,7 +16,7 @@ import pytest
 
 from faultforge.oracle import Oracle
 
-EXPERIMENTS_DIR = Path(__file__).parent.parent / "experiments"
+EXPERIMENTS_DIR = Path(__file__).parent.parent.parent / "experiments"
 ORACLES_DIR = EXPERIMENTS_DIR / "oracles"
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "experiments"
 

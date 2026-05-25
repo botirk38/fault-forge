@@ -1,19 +1,29 @@
 """Xinda-style exhaustive grid baseline for comparison.
 
 Implements the same severity grid from Xinda's generate.py danger-zone scheme
-and runs each severity level sequentially until the oracle fires. This measures
-how many trials Xinda needs to find the danger-zone boundary vs the minimizer's
-binary search.
+and runs each severity level sequentially. This measures how many trials Xinda
+needs to find the danger-zone boundary vs the minimizer's binary search.
+
+Usage:
+    python experiments/baseline.py --spec experiments/systems/etcd.yaml \
+        --oracle experiments/oracles/etcd-raft-election.yaml --json
 """
 
 from __future__ import annotations
 
+import argparse
+import json
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import cast
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "faultforge" / "src"))
+
 from faultforge.live.runner import LiveRunner
+from faultforge.live.systems import SystemSpec
 from faultforge.oracle import Oracle
 from faultforge.trial import SlowFault, SlowFaultKind, Trial
 
@@ -74,7 +84,7 @@ class BaselineResult:
 
 
 def run_xinda_baseline(
-    system: str,
+    spec: SystemSpec,
     oracle_path: str,
     *,
     location: str = "node1",
@@ -83,14 +93,9 @@ def run_xinda_baseline(
     log_dir: str | None = None,
     max_trials: int | None = None,
 ) -> BaselineResult:
-    """Run Xinda-style exhaustive grid search from lowest to highest severity.
-
-    Iterates through the full Xinda danger-zone severity grid in order until
-    the oracle fires. Returns the number of trials needed and the severity
-    at which the oracle first triggers.
-    """
+    """Run Xinda-style exhaustive grid search from lowest to highest severity."""
     oracle = Oracle.from_file(oracle_path)
-    runner = LiveRunner(log_dir=log_dir)
+    runner = LiveRunner(spec, log_dir=log_dir)
 
     grid = XINDA_NW_DANGER_ZONE_GRID
     cap = max_trials or len(grid)
@@ -98,7 +103,7 @@ def run_xinda_baseline(
 
     logger.info(
         "Starting Xinda baseline: system=%s grid_size=%d",
-        system,
+        spec.name,
         len(grid),
     )
 
@@ -117,8 +122,8 @@ def run_xinda_baseline(
             "if_restart": False,
         }
         trial: Trial = {
-            "trial_id": f"{system}-baseline-{i}",
-            "system": {"name": system},
+            "trial_id": f"{spec.name}-baseline-{i}",
+            "system": {"name": spec.name},
             "benchmark": {"name": "default"},
             "faults": [fault],
         }
@@ -161,7 +166,7 @@ def run_xinda_baseline(
         trials_to_hit = len(grid)
 
     return BaselineResult(
-        system=system,
+        system=spec.name,
         oracle_id=oracle.configured_issue_id,
         total_grid_size=len(grid),
         trials_to_first_hit=trials_to_hit,
@@ -169,3 +174,55 @@ def run_xinda_baseline(
         wall_time_s=wall_time,
         all_results=results,
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run Xinda-style exhaustive grid baseline")
+    parser.add_argument("--spec", required=True, help="Path to system spec YAML")
+    parser.add_argument("--oracle", required=True, help="Path to oracle YAML")
+    parser.add_argument("--location", default="node1")
+    parser.add_argument("--fault-type", default="nw")
+    parser.add_argument("--duration", type=int, default=30)
+    parser.add_argument("--max-trials", type=int, default=None)
+    parser.add_argument("--log-dir", default=None)
+    parser.add_argument("--json", action="store_true")
+    args = parser.parse_args()
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    spec = SystemSpec.from_file(args.spec)
+    result = run_xinda_baseline(
+        spec,
+        args.oracle,
+        location=args.location,
+        fault_type=args.fault_type,
+        duration_s=args.duration,
+        max_trials=args.max_trials,
+        log_dir=args.log_dir,
+    )
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "system": result.system,
+                    "oracle_id": result.oracle_id,
+                    "total_grid_size": result.total_grid_size,
+                    "trials_to_first_hit": result.trials_to_first_hit,
+                    "first_hit_severity": result.first_hit_severity,
+                    "wall_time_s": result.wall_time_s,
+                },
+                indent=2,
+            )
+        )
+    else:
+        print(f"System: {result.system}")
+        print(f"Oracle: {result.oracle_id}")
+        print(f"Grid size: {result.total_grid_size}")
+        print(f"Trials to first hit: {result.trials_to_first_hit}")
+        print(f"First hit severity: {result.first_hit_severity}")
+        print(f"Wall time: {result.wall_time_s:.1f}s")
+
+
+if __name__ == "__main__":
+    main()

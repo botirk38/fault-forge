@@ -1,0 +1,33 @@
+name: tikv
+image: pingcap/tikv:v7.5.0
+cluster_size: 3
+startup_wait_s: 12
+post_inject_wait_s: 20
+node_map:
+  node1: tikv1
+  node2: tikv2
+  node3: tikv3
+  leader: tikv1
+  follower: tikv2
+start_commands:
+  - >-
+    docker run -d --name pd1 --net {network} pingcap/pd:v7.5.0
+    --name=pd1 --data-dir=/pd
+    --client-urls=http://0.0.0.0:2379 --peer-urls=http://0.0.0.0:2380
+    --advertise-client-urls=http://pd1:2379 --advertise-peer-urls=http://pd1:2380
+  - >-
+    docker run -d --name tikv1 --net {network} {image}
+    --addr=0.0.0.0:20160 --advertise-addr=tikv1:20160
+    --data-dir=/tikv --pd=pd1:2379
+  - >-
+    docker run -d --name tikv2 --net {network} {image}
+    --addr=0.0.0.0:20160 --advertise-addr=tikv2:20160
+    --data-dir=/tikv --pd=pd1:2379
+  - >-
+    docker run -d --name tikv3 --net {network} {image}
+    --addr=0.0.0.0:20160 --advertise-addr=tikv3:20160
+    --data-dir=/tikv --pd=pd1:2379
+workload_command: docker exec pd1 /pd-ctl store 2>&1
+stop_commands:
+  - docker rm -f pd1 tikv1 tikv2 tikv3
+  - docker network rm {network}

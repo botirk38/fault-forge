@@ -9,7 +9,7 @@ import yaml
 from faultforge.oracle import Oracle, OracleConfig, RuleGroup, RuleLeaf
 from faultforge.search import SearchConfig
 
-EXPERIMENTS_DIR = Path(__file__).parent.parent / "experiments"
+EXPERIMENTS_DIR = Path(__file__).parent.parent.parent / "experiments"
 ORACLES_DIR = EXPERIMENTS_DIR / "oracles"
 CONFIGS_DIR = EXPERIMENTS_DIR / "configs"
 
@@ -82,7 +82,7 @@ class TestExperimentConfigFiles:
                 assert not missing, f"{path.name}/{run.get('name')}: missing {missing}"
 
     def test_oracle_paths_exist(self) -> None:
-        base = Path(__file__).parent.parent
+        base = Path(__file__).parent.parent.parent
         for path in self._config_files():
             data = yaml.safe_load(path.read_text(encoding="utf-8"))
             for run in data["runs"]:

@@ -1,0 +1,25 @@
+name: cassandra
+image: cassandra:4.0.10
+cluster_size: 3
+startup_wait_s: 45
+post_inject_wait_s: 15
+node_map:
+  node1: cass1
+  node2: cass2
+  node3: cass3
+start_commands:
+  - >-
+    docker run -d --name cass1 --net {network}
+    -e CASSANDRA_CLUSTER_NAME=test -e CASSANDRA_DC=dc1 {image}
+  - >-
+    docker run -d --name cass2 --net {network}
+    -e CASSANDRA_CLUSTER_NAME=test -e CASSANDRA_DC=dc1
+    -e CASSANDRA_SEEDS=cass1 {image}
+  - >-
+    docker run -d --name cass3 --net {network}
+    -e CASSANDRA_CLUSTER_NAME=test -e CASSANDRA_DC=dc1
+    -e CASSANDRA_SEEDS=cass1 {image}
+workload_command: docker exec cass1 nodetool status 2>&1
+stop_commands:
+  - docker rm -f cass1 cass2 cass3
+  - docker network rm {network}

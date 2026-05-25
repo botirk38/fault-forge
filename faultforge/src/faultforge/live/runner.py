@@ -15,7 +15,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from faultforge.live.systems import SystemSpec, get_spec
+from faultforge.live.systems import SystemSpec
 from faultforge.severity import parse_severity_ms
 from faultforge.trial import Trial, TrialResult
 
@@ -25,19 +25,22 @@ logger = logging.getLogger(__name__)
 class LiveRunner:
     """Execute trials against real Docker containers.
 
+    Requires a SystemSpec defining the cluster lifecycle. The runner is
+    generic — it works with any system that can be expressed as a SystemSpec.
+
     Usage:
-        runner = LiveRunner()
+        spec = SystemSpec.from_file("etcd.yaml")
+        runner = LiveRunner(spec)
         result = runner.run(trial)
-        # result["artifacts"]["compose"] points to collected logs
     """
 
-    def __init__(self, log_dir: str | None = None) -> None:
+    def __init__(self, spec: SystemSpec, *, log_dir: str | None = None) -> None:
+        self._spec = spec
         self._log_dir = log_dir
 
     def run(self, trial: Trial) -> TrialResult:
         """Execute trial: start cluster, inject fault, run workload, collect logs."""
-        system_name = trial["system"]["name"]
-        spec = get_spec(system_name)
+        spec = self._spec
 
         try:
             self._start_cluster(spec)
@@ -76,31 +79,9 @@ class LiveRunner:
         time.sleep(spec.startup_wait_s)
 
         if spec.init_command:
-            if spec.init_command == "__redis_cluster_create__":
-                self._init_redis_cluster(spec)
-            else:
-                cmd = spec.init_command.format(network=network, image=spec.image)
-                _sh(cmd, timeout=30)
-                time.sleep(5)
-
-    def _init_redis_cluster(self, spec: SystemSpec) -> None:
-        """Create Redis cluster from running nodes."""
-        ips = []
-        for i in range(1, spec.cluster_size + 1):
-            result = _sh(
-                f"docker inspect -f '{{{{range.NetworkSettings.Networks}}}}"
-                f"{{{{.IPAddress}}}}{{{{end}}}}' redis{i}"
-            )
-            ip = result.stdout.strip()
-            ips.append(f"{ip}:6379")
-
-        ip_list = " ".join(ips)
-        _sh(
-            f"docker exec redis1 redis-cli --cluster create {ip_list}"
-            f" --cluster-replicas 1 --cluster-yes",
-            timeout=30,
-        )
-        time.sleep(3)
+            cmd = spec.init_command.format(network=network, image=spec.image)
+            _sh(cmd, timeout=30)
+            time.sleep(5)
 
     def _inject_faults(self, trial: Trial, spec: SystemSpec) -> None:
         """Inject faults on target containers using nsenter + tc netem."""
@@ -115,9 +96,7 @@ class LiveRunner:
                 logger.warning("Cannot parse severity %r, skipping", fault["severity"])
                 continue
 
-            if fault["fault_type"] == "nw":
-                self._inject_network_delay(target, int(delay_ms))
-            elif fault["fault_type"] == "fs":
+            if fault["fault_type"] in ("nw", "fs"):
                 self._inject_network_delay(target, int(delay_ms))
 
     def _inject_network_delay(self, container: str, delay_ms: int) -> None:
@@ -136,56 +115,8 @@ class LiveRunner:
         logger.info("Injected %dms delay on %s (pid=%s)", delay_ms, container, pid)
 
     def _resolve_target(self, location: str, spec: SystemSpec) -> str:
-        """Map a fault location (e.g., 'node1', 'leader') to container name."""
-        name = spec.name
-        node_map: dict[str, dict[str, str]] = {
-            "etcd": {
-                "node1": "etcd1",
-                "node2": "etcd2",
-                "node3": "etcd3",
-                "leader": "etcd1",
-                "follower": "etcd2",
-            },
-            "zookeeper": {
-                "node1": "zk1",
-                "node2": "zk2",
-                "node3": "zk3",
-                "leader": "zk1",
-                "follower": "zk2",
-            },
-            "mongodb": {
-                "node1": "mongo1",
-                "node2": "mongo2",
-                "node3": "mongo3",
-                "primary": "mongo1",
-                "secondary": "mongo2",
-            },
-            "redis": {
-                "node1": "redis1",
-                "node2": "redis2",
-                "node3": "redis3",
-                "master1": "redis1",
-                "master2": "redis2",
-                "replica1": "redis4",
-            },
-            "tikv": {
-                "node1": "tikv1",
-                "node2": "tikv2",
-                "node3": "tikv3",
-                "leader": "tikv1",
-                "follower": "tikv2",
-            },
-            "cassandra": {"node1": "cass1", "node2": "cass2", "node3": "cass3"},
-            "kafka": {
-                "node1": "kafka1",
-                "node2": "kafka2",
-                "node3": "kafka3",
-                "broker1": "kafka1",
-                "broker2": "kafka2",
-            },
-        }
-        mapping = node_map.get(name, {})
-        container = mapping.get(location, location)
+        """Map a fault location to a container name using the spec's node_map."""
+        container = spec.node_map.get(location, location)
         return container
 
     def _run_workload(self, spec: SystemSpec) -> None:
