@@ -492,3 +492,72 @@ def live_minimize_cmd(
         click.echo("Minimal recipe:")
         for i, f in enumerate(m.minimized["faults"]):
             click.echo(f"  [{i}] {fault_info(f)}")
+
+
+@main.command("baseline")
+@click.option(
+    "--system",
+    type=str,
+    required=True,
+    help="Target system name.",
+)
+@click.option(
+    "--oracle",
+    type=click.Path(dir_okay=False, path_type=Path),
+    required=True,
+    help="YAML oracle definition file.",
+)
+@click.option("--location", type=str, default="node1", show_default=True)
+@click.option("--fault-type", type=str, default="nw", show_default=True)
+@click.option("--duration", type=int, default=30, show_default=True)
+@click.option("--max-trials", type=int, default=None)
+@click.option("--log-dir", type=click.Path(path_type=Path), default=None)
+@click.option("--json", "output_json", is_flag=True, default=False)
+def baseline_cmd(
+    system: str,
+    oracle: Path,
+    location: str,
+    fault_type: str,
+    duration: int,
+    max_trials: int | None,
+    log_dir: Path | None,
+    output_json: bool,
+) -> None:
+    """Run Xinda-style exhaustive grid baseline for comparison."""
+    import logging
+
+    from faultforge.live.baseline import run_xinda_baseline
+
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+
+    result = run_xinda_baseline(
+        system=system,
+        oracle_path=str(oracle),
+        location=location,
+        fault_type=fault_type,
+        duration_s=duration,
+        max_trials=max_trials,
+        log_dir=str(log_dir) if log_dir else None,
+    )
+
+    if output_json:
+        click.echo(
+            json.dumps(
+                {
+                    "system": result.system,
+                    "oracle_id": result.oracle_id,
+                    "total_grid_size": result.total_grid_size,
+                    "trials_to_first_hit": result.trials_to_first_hit,
+                    "first_hit_severity": result.first_hit_severity,
+                    "wall_time_s": result.wall_time_s,
+                },
+                indent=2,
+            )
+        )
+    else:
+        click.echo(f"System: {result.system}")
+        click.echo(f"Oracle: {result.oracle_id}")
+        click.echo(f"Grid size: {result.total_grid_size}")
+        click.echo(f"Trials to first hit: {result.trials_to_first_hit}")
+        click.echo(f"First hit severity: {result.first_hit_severity}")
+        click.echo(f"Wall time: {result.wall_time_s:.1f}s")
