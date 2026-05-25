@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from cli import main  # noqa: E402
 from click.testing import CliRunner
 
-from faultforge.cli import main
 from faultforge.search import SearchConfig
 from faultforge.trial import Trial, make_trial
 
@@ -45,8 +48,8 @@ def test_search_command_runs_without_oracle() -> None:
     fake_search = MagicMock()
     fake_search.run.return_value = fake_results
 
-    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
-        with patch("faultforge.cli.Searcher", return_value=fake_search):
+    with patch("cli.TrialRunner", return_value=MagicMock()):
+        with patch("cli.Searcher", return_value=fake_search):
             result = runner.invoke(
                 main,
                 [
@@ -84,8 +87,8 @@ def test_search_pulls_issue_id_from_oracle_file(tmp_path: Path) -> None:
 
     runner = CliRunner()
 
-    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
-        with patch("faultforge.cli.Searcher", _CaptureSearcher):
+    with patch("cli.TrialRunner", return_value=MagicMock()):
+        with patch("cli.Searcher", _CaptureSearcher):
             result = runner.invoke(
                 main,
                 [
@@ -107,7 +110,7 @@ def test_search_pulls_issue_id_from_oracle_file(tmp_path: Path) -> None:
 def test_search_dry_run_plans_without_executing() -> None:
     runner = CliRunner()
 
-    with patch("faultforge.cli.Searcher") as mock_searcher_cls:
+    with patch("cli.Searcher") as mock_searcher_cls:
         result = runner.invoke(
             main,
             [
@@ -174,8 +177,8 @@ def test_search_custom_fault_knobs() -> None:
 
     runner = CliRunner()
 
-    with patch("faultforge.cli.TrialRunner", return_value=MagicMock()):
-        with patch("faultforge.cli.Searcher", _CaptureSearcher):
+    with patch("cli.TrialRunner", return_value=MagicMock()):
+        with patch("cli.Searcher", _CaptureSearcher):
             result = runner.invoke(
                 main,
                 [
@@ -245,7 +248,7 @@ def test_experiment_runs_and_writes_files(tmp_path: Path) -> None:
 
     runner = CliRunner()
 
-    with patch("faultforge.experiment.ExperimentRunner") as mock_runner_cls:
+    with patch("experiment.ExperimentRunner") as mock_runner_cls:
         mock_runner = MagicMock()
         mock_result = MagicMock()
         mock_result.name = "baseline"

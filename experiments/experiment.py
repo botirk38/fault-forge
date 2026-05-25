@@ -7,7 +7,7 @@ import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from faultforge.runner import TrialRunner
+from trial_runner import TrialRunner
 from faultforge.search import SearchConfig, Searcher, SearchResult
 
 logger = logging.getLogger(__name__)

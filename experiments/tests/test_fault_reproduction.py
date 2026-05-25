@@ -16,9 +16,9 @@ import pytest
 
 from faultforge.oracle import Oracle
 
-EXPERIMENTS_DIR = Path(__file__).parent.parent.parent / "experiments"
+EXPERIMENTS_DIR = Path(__file__).parent.parent
 ORACLES_DIR = EXPERIMENTS_DIR / "oracles"
-FIXTURES_DIR = Path(__file__).parent / "fixtures" / "experiments"
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 def _artifacts(compose_fixture: str, info_fixture: str = "valid-info.log") -> dict[str, str]:

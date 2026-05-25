@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from faultforge.runtime import RuntimeConfig, load_runtime
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from runtime import RuntimeConfig, load_runtime  # noqa: E402
 
 
 class TestRuntimeConfig:

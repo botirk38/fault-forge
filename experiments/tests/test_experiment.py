@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from faultforge.experiment import Experiment, ExperimentResult, ExperimentRunner
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from experiment import Experiment, ExperimentResult, ExperimentRunner  # noqa: E402
+
 from faultforge.search import SearchConfig, SearchResult
 from faultforge.trial import Trial, make_trial
 
@@ -118,7 +122,7 @@ class TestExperimentRunner:
 
         fake_result = _make_search_result("t1", 0.5, False, 0)
 
-        with patch("faultforge.experiment.Searcher") as mock_searcher_cls:
+        with patch("experiment.Searcher") as mock_searcher_cls:
             mock_searcher = MagicMock()
             mock_searcher.run.return_value = [fake_result]
             mock_searcher_cls.return_value = mock_searcher

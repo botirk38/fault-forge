@@ -13,7 +13,7 @@ import yaml
 from faultforge import __version__
 from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
-from faultforge.runner import TrialRunner
+from trial_runner import TrialRunner
 from faultforge.search import (
     EXHAUSTIVE_GRID,
     RANDOM_SUBSET_GRID,
@@ -195,8 +195,8 @@ def search_cmd(
 @click.option("--runtime", type=click.Path(dir_okay=False, path_type=Path), default=None)
 def preflight_cmd(experiment: Path, runtime: Path | None) -> None:
     """Validate the runtime environment before running an experiment."""
-    from faultforge.preflight import Preflight
-    from faultforge.runtime import load_runtime
+    from preflight import Preflight
+    from runtime import load_runtime
 
     rt = load_runtime(runtime)
     report = Preflight(rt).run()
@@ -244,8 +244,8 @@ def experiment_cmd(
     dry_run: bool,
 ) -> None:
     """Run a batch experiment from a YAML config file."""
-    from faultforge.experiment import Experiment, ExperimentRunner
-    from faultforge.runtime import load_runtime
+    from experiment import Experiment, ExperimentRunner
+    from runtime import load_runtime
 
     rt = load_runtime(runtime)
     raw = yaml.safe_load(config_file.read_text(encoding="utf-8"))
@@ -347,7 +347,7 @@ def minimize_cmd(
     output_json: bool,
 ) -> None:
     """Minimize a reproducing trial to its smallest fault recipe."""
-    from faultforge.runtime import load_runtime
+    from runtime import load_runtime
 
     rt = load_runtime(runtime)
     ora = Oracle.from_file(oracle)

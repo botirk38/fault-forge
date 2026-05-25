@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from faultforge.injectors.filesystem import FilesystemFaultInjector
-from faultforge.injectors.network import NetworkFaultInjector
-from faultforge.injectors.process import ProcessFaultInjector
-from faultforge.injectors.registry import InjectorRegistry
-from faultforge.injectors.resource import ResourceFaultInjector
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from injectors.filesystem import FilesystemFaultInjector  # noqa: E402
+from injectors.network import NetworkFaultInjector  # noqa: E402
+from injectors.process import ProcessFaultInjector  # noqa: E402
+from injectors.registry import InjectorRegistry  # noqa: E402
+from injectors.resource import ResourceFaultInjector  # noqa: E402
 
 
 class TestNetworkFaultInjector:

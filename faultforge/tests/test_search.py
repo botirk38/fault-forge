@@ -5,7 +5,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from faultforge.oracle import Oracle, OracleResult
-from faultforge.runner import TrialRunner
 from faultforge.search import (
     RANDOM_SUBSET_GRID,
     SHUFFLED_GRID,
@@ -135,15 +134,13 @@ class TestSearchRunner:
             durations_s=[30],
             max_trials=10,
         )
-        runner = TrialRunner()
-
-        with patch.object(runner, "run") as mock_run:
-            mock_run.return_value = {
-                "success": True,
-                "trial": cfg.bounded_trials(issue_id="TEST-1")[0],
-                "log_path": "/tmp/test.log",
-            }
-            results = Searcher(runner).run(cfg, issue_id="TEST-1")
+        runner = MagicMock()
+        runner.run.return_value = {
+            "success": True,
+            "trial": cfg.bounded_trials(issue_id="TEST-1")[0],
+            "log_path": "/tmp/test.log",
+        }
+        results = Searcher(runner).run(cfg, issue_id="TEST-1")
 
         assert len(results) == 1
         assert results[0].trial["issue_id"] == "TEST-1"
@@ -160,7 +157,7 @@ class TestSearchRunner:
             durations_s=[30],
             max_trials=3,
         )
-        runner = TrialRunner()
+        runner = MagicMock()
 
         with patch.object(runner, "run") as mock_run:
             mock_run.return_value = {

@@ -9,7 +9,7 @@ import yaml
 from faultforge.oracle import Oracle, OracleConfig, RuleGroup, RuleLeaf
 from faultforge.search import SearchConfig
 
-EXPERIMENTS_DIR = Path(__file__).parent.parent.parent / "experiments"
+EXPERIMENTS_DIR = Path(__file__).parent.parent
 ORACLES_DIR = EXPERIMENTS_DIR / "oracles"
 CONFIGS_DIR = EXPERIMENTS_DIR / "configs"
 

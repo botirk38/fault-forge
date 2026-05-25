@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from faultforge.oracle import Oracle  # noqa: E402
 
 TOOLS_DIR = Path(__file__).parent.parent.parent / "xinda" / "tools"
-ORACLES_DIR = Path(__file__).parent.parent.parent / "experiments" / "oracles"
+ORACLES_DIR = Path(__file__).parent.parent / "oracles"
 RESULTS_DIR = Path("/tmp/fault-reproduction-results")
 RESULTS_DIR.mkdir(exist_ok=True)
 
