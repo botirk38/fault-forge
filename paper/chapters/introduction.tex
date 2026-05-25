@@ -64,7 +64,14 @@ trials, (2)~binary-search minimum severity per remaining fault,
 (3)~binary-search minimum duration, and (4)~binary-search latest start time.
 Each phase uses $O(\log_2 n)$ trials to converge on the boundary in its
 dimension, producing a practical upper bound on the minimal fault recipe that
-is both human-interpretable and CI-actionable.
+is both human-interpretable and CI-actionable. While binary search itself is
+standard, applying it effectively to distributed system fault testing requires
+addressing several practical challenges: validating the monotonicity assumption
+empirically (non-determinism in real systems introduces noise), decomposing a
+multi-dimensional parameter space into independent searchable dimensions, and
+integrating the search into a full lifecycle pipeline (container orchestration,
+fault injection, log collection, oracle evaluation) that must execute reliably
+across diverse systems.
 
 We evaluate \system{} across ten widely-deployed distributed systems spanning
 five fault types (network, filesystem, CPU, memory, process). Our results show:
