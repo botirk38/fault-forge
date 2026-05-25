@@ -1,0 +1,23 @@
+issue:
+  id: "ZK-ACL-HANG"
+  system: "zookeeper"
+  title: "ACLCache lock contention under slow I/O (ZOOKEEPER-3531)"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "fsync-ing the write ahead log"
+    - file: compose
+      regex: "Too busy to snap"
+    - file: compose
+      regex: "Slow serialize"
+    - file: compose
+      regex: "Unable to load database on disk"
+    - file: compose
+      regex: "Connection.*timed out"

@@ -1,0 +1,23 @@
+issue:
+  id: "REDIS-FAILOVER"
+  system: "redis"
+  title: "Redis Cluster PFAIL/FAIL state transition under network delay"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "PFAIL"
+    - file: compose
+      regex: "Cluster state changed.*fail"
+    - file: compose
+      regex: "Marking node.*as failing"
+    - file: compose
+      regex: "FAIL"
+    - file: compose
+      regex: "Failover auth granted"

@@ -1,0 +1,23 @@
+issue:
+  id: "ZK-LEADER-ELECTION"
+  system: "zookeeper"
+  title: "Leader election cascade under network delay (ZOOKEEPER-4816)"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "LOOKING"
+    - file: compose
+      regex: "New election"
+    - file: compose
+      regex: "Notification time out"
+    - file: compose
+      regex: "LEADER ELECTION TOOK"
+    - file: compose
+      regex: "Cannot open channel.*at election address"

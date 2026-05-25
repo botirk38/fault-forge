@@ -1,0 +1,47 @@
+name: redis-danger-zone
+
+runs:
+  - name: redis-nw-master-failover
+    system: redis
+    benchmark: redis-benchmark
+    oracle: experiments/oracles/redis-failover.yaml
+    issue_id: "REDIS-FAILOVER"
+    nodes: ["master1"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 5, 10, 50, 100, 500, 1000, 5000, 10000]
+    start_times_s: [0, 10, 30]
+    durations_s: [15, 30, 60]
+    max_faults_per_trial: 1
+    max_trials: 200
+    strategy: shuffled
+    seed: 42
+
+  - name: redis-nw-replica-timeout
+    system: redis
+    benchmark: redis-benchmark
+    oracle: experiments/oracles/redis-repl-timeout.yaml
+    issue_id: "REDIS-REPL-TIMEOUT"
+    nodes: ["replica1"]
+    fault_models: ["nw"]
+    magnitudes_ms: [5, 10, 50, 100, 500, 1000, 5000]
+    start_times_s: [0, 10, 30]
+    durations_s: [15, 30, 60]
+    max_faults_per_trial: 1
+    max_trials: 100
+    strategy: shuffled
+    seed: 42
+
+  - name: redis-nw-multi-master
+    system: redis
+    benchmark: redis-benchmark
+    oracle: experiments/oracles/redis-failover.yaml
+    issue_id: "REDIS-FAILOVER"
+    nodes: ["master1", "master2"]
+    fault_models: ["nw"]
+    magnitudes_ms: [50, 100, 500, 1000, 5000]
+    start_times_s: [0, 10]
+    durations_s: [15, 30]
+    max_faults_per_trial: 2
+    max_trials: 100
+    strategy: shuffled
+    seed: 42

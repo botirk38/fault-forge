@@ -1,0 +1,23 @@
+issue:
+  id: "MONGO-ROLLBACK"
+  system: "mongodb"
+  title: "Replica set rollback under network partition/delay"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "rollback"
+    - file: compose
+      regex: "transition to ROLLBACK"
+    - file: compose
+      regex: "Rollback.*writes"
+    - file: compose
+      regex: "stepping down"
+    - file: compose
+      regex: "not primary"

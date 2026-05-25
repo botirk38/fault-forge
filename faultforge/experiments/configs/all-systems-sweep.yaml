@@ -90,3 +90,63 @@ runs:
     max_trials: 50
     strategy: random-subset
     seed: 42
+
+  - name: zookeeper-sweep
+    system: zookeeper
+    benchmark: ycsb
+    oracle: experiments/oracles/zk-leader-election.yaml
+    issue_id: "ZK-LEADER-ELECTION"
+    nodes: ["leader", "follower"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: mongodb-sweep
+    system: mongodb
+    benchmark: ycsb
+    oracle: experiments/oracles/mongo-rollback.yaml
+    issue_id: "MONGO-ROLLBACK"
+    nodes: ["primary", "secondary"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: redis-sweep
+    system: redis
+    benchmark: redis-benchmark
+    oracle: experiments/oracles/redis-failover.yaml
+    issue_id: "REDIS-FAILOVER"
+    nodes: ["master1", "replica1"]
+    fault_models: ["nw"]
+    magnitudes_ms: [1, 10, 100, 1000, 5000]
+    start_times_s: [0, 30]
+    durations_s: [15, 60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42
+
+  - name: tikv-sweep
+    system: tikv
+    benchmark: sysbench
+    oracle: experiments/oracles/tikv-region-unavailable.yaml
+    issue_id: "TIKV-REGION-UNAVAIL"
+    nodes: ["tikv1", "tikv2"]
+    fault_models: ["nw", "fs"]
+    magnitudes_ms: [1, 10, 100, 1000]
+    start_times_s: [0, 30]
+    durations_s: [60]
+    max_faults_per_trial: 1
+    max_trials: 50
+    strategy: random-subset
+    seed: 42

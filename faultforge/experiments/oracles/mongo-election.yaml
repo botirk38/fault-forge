@@ -1,0 +1,23 @@
+issue:
+  id: "MONGO-ELECTION"
+  system: "mongodb"
+  title: "Primary election under network delay causes stale reads"
+  category: "slow-fault"
+
+invalid_if:
+  any:
+    - file: info
+      contains: "docker-compose up failed"
+
+reproduced_if:
+  any:
+    - file: compose
+      regex: "Starting an election"
+    - file: compose
+      regex: "election succeeded"
+    - file: compose
+      regex: "stepping down.*term"
+    - file: compose
+      regex: "not master"
+    - file: compose
+      regex: "heartbeat.*failed"
