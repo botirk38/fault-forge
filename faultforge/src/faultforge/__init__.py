@@ -19,6 +19,14 @@ from faultforge.trial import (
     Trial,
     TrialPaths,
     TrialResult,
+    fault_end_s,
+    fault_info,
+    load_trial,
+    make_fault,
+    make_fs_fault,
+    make_nw_fault,
+    make_result,
+    make_trial,
 )
 
 __all__ = [
@@ -36,5 +44,13 @@ __all__ = [
     "TrialPaths",
     "TrialResult",
     "build_severity",
+    "fault_end_s",
+    "fault_info",
+    "load_trial",
+    "make_fault",
+    "make_fs_fault",
+    "make_nw_fault",
+    "make_result",
+    "make_trial",
     "parse_severity_ms",
 ]

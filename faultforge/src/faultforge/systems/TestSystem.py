@@ -78,10 +78,10 @@ class TestSystem:
         ct_yaml = os.path.join(os.path.dirname(os.path.abspath(__file__)), container_yaml)
         with open(ct_yaml, "r") as config_file:
             self.container_config = yaml.safe_load(config_file)
-        if primary.location not in self.container_config[sys_name]:
+        if primary["location"] not in self.container_config[sys_name]:
             if sys_name != "etcd":
                 raise ValueError(
-                    f"Exception: {primary.location} is not a member of {sys_name}:{self.container_config[sys_name]}"
+                    f"Exception: {primary['location']} is not a member of {sys_name}:{self.container_config[sys_name]}"
                 )
         self.info(f"Current workload: {self.benchmark.workload}")
         self.info(
@@ -100,32 +100,35 @@ class TestSystem:
 
     def _primary_fault(self) -> SlowFault:
         for f in self.faults:
-            if f.fault_type != "none":
+            if f["fault_type"] != "none":
                 return f
         return self.faults[0]
 
     @classmethod
     def from_trial(cls, trial: Trial):
+        sys = trial["system"]
+        paths = trial.get("paths") or {}
+        resource = trial.get("resource") or {}
         return cls(
-            sys_name=trial.system.name,
-            faults=list(trial.faults),
+            sys_name=sys["name"],
+            faults=list(trial["faults"]),
             benchmark=_build_benchmark(trial),
-            data_dir=trial.system.data_dir,
-            log_root_dir=trial.paths.log_root_dir,
-            install_root=trial.paths.install_root,
-            tooling_root=trial.paths.tooling_root,
-            charybdefs_mount_dir=trial.paths.charybdefs_mount_dir,
+            data_dir=sys.get("data_dir", "default"),
+            log_root_dir=paths.get("log_root_dir", ""),
+            install_root=paths.get("install_root", ""),
+            tooling_root=paths.get("tooling_root", ""),
+            charybdefs_mount_dir=paths.get("charybdefs_mount_dir", "/var/lib/docker/cfs_mount/tmp"),
             reslim=ResourceLimit(
-                cpu_limit=trial.resource.cpu_limit,
-                mem_limit=trial.resource.mem_limit,
+                cpu_limit=resource.get("cpu_limit", "4"),
+                mem_limit=resource.get("mem_limit", "32G"),
             ),
-            version=trial.version,
-            coverage=trial.system.coverage,
-            change_workload=trial.system.change_workload,
+            version=trial.get("version"),
+            coverage=sys.get("coverage", False),
+            change_workload=sys.get("change_workload", False),
             benchmark2=_build_benchmark2(trial),
-            if_iaso=trial.system.if_iaso,
-            cluster_size=trial.system.cluster_size,
-            iteration=trial.iteration,
+            if_iaso=sys.get("if_iaso", "none"),
+            cluster_size=sys.get("cluster_size", 3),
+            iteration=trial.get("iteration", 1),
         )
 
     def is_port_in_use(self, port):
@@ -188,7 +191,7 @@ class TestSystem:
     def docker_up(self):
         primary = self._primary_fault()
         cmd = [1]
-        if primary.fault_type == "nw" or primary.fault_type == "none":
+        if primary["fault_type"] == "nw" or primary["fault_type"] == "none":
             self.compose_file = "docker-compose.yaml"
             if self.cluster_size > 3:
                 self.compose_file = f"docker-compose-{self.cluster_size}node.yaml"
@@ -199,11 +202,11 @@ class TestSystem:
                 "up",
                 "-d",
             ]
-        elif primary.fault_type == "fs":
-            self.compose_file = f"docker-compose-{primary.location}.yaml"
+        elif primary["fault_type"] == "fs":
+            self.compose_file = f"docker-compose-{primary['location']}.yaml"
             if self.cluster_size > 3:
                 self.compose_file = (
-                    f"docker-compose-{primary.location}-{self.cluster_size}node.yaml"
+                    f"docker-compose-{primary['location']}-{self.cluster_size}node.yaml"
                 )
             cmd = [
                 "docker-compose",
@@ -214,7 +217,7 @@ class TestSystem:
             ]
         else:
             raise ValueError(
-                f"Exception: Slow fault type:{primary.fault_type} is not a member of {{nw, fs, none}}"
+                f"Exception: Slow fault type:{primary['fault_type']} is not a member of {{nw, fs, none}}"
             )
         print(" ".join(cmd))
         result = subprocess.run(
@@ -226,7 +229,7 @@ class TestSystem:
         if result.returncode != 0:
             self.info(f"docker-compose up failed: {result.stderr}")
             raise RuntimeError(f"docker-compose up failed: {result.stderr}")
-        if primary.fault_type == "fs":
+        if primary["fault_type"] == "fs":
             for i in range(0, self.cluster_size - 2):
                 time.sleep(1)
                 print("try again")
@@ -332,41 +335,41 @@ class TestSystem:
             raise ValueError(
                 f"Exception: self.start_time is None. Either the benchmark has not started yet, or we fail/forget to set this parameter"
             )
-        if fault.duration_s == -1 and fault.if_restart:
+        if fault["duration_s"] == -1 and fault["if_restart"]:
             self.info(
-                f"Baseline for restart. Will restart after 5s of fault.start_s:{fault.start_s}",
+                f"Baseline for restart. Will restart after 5s of fault.start_s:{fault['start_s']}",
                 rela=self.start_time,
             )
             cur_time = self.get_current_ts()
-            delta_time = fault.start_s - cur_time
+            delta_time = fault["start_s"] - cur_time
             self.info(f"Sleep {delta_time} until next command", rela=self.start_time)
             if delta_time > 0:
                 time.sleep(delta_time)
             time.sleep(5)
-            cmd_restart = f"docker restart {fault.location}"
+            cmd_restart = f"docker restart {fault['location']}"
             self.info("docker restart BEGINs", rela=self.start_time)
             p = subprocess.run(cmd_restart, shell=True)
             self.info("docker restart ENDs", rela=self.start_time)
             return None
-        if fault.duration_s == -1:
+        if fault["duration_s"] == -1:
             self.info("Fault duration == -1, no faults shall be injected")
             return None
 
         cur_time = self.get_current_ts()
-        delta_time = fault.start_s - cur_time
+        delta_time = fault["start_s"] - cur_time
         self.info(f"Sleep {delta_time} until next command", rela=self.start_time)
         if delta_time > 0:
             time.sleep(delta_time)
 
-        if fault.fault_type == "nw":
+        if fault["fault_type"] == "nw":
             self._inject_network_fault(fault)
-        elif fault.fault_type == "fs":
+        elif fault["fault_type"] == "fs":
             self._inject_fs_fault(fault, cfs_pattern)
-        elif fault.fault_type == "cpu":
+        elif fault["fault_type"] == "cpu":
             self._inject_cpu_fault(fault)
-        elif fault.fault_type == "mem":
+        elif fault["fault_type"] == "mem":
             self._inject_mem_fault(fault)
-        elif fault.fault_type == "process":
+        elif fault["fault_type"] == "process":
             self._inject_process_fault(fault)
         else:
             return None
@@ -377,7 +380,7 @@ class TestSystem:
             while iaso_time - fault_actually_begin_time < 5:
                 iaso_time = self.get_current_ts()
                 time.sleep(1)
-            if fault.severity in [
+            if fault["severity"] in [
                 "slow-100ms",
                 "slow-1s",
                 "100000",
@@ -385,26 +388,26 @@ class TestSystem:
             ]:
                 cmd_iaso = ""
                 if self.if_iaso == "reboot":
-                    cmd_iaso = f"docker restart {fault.location}"
+                    cmd_iaso = f"docker restart {fault['location']}"
                     self.info(f"Mimicing IASO: VM {self.if_iaso}", rela=self.start_time)
                 if self.if_iaso == "shutdown":
-                    cmd_iaso = f"docker stop {fault.location}"
+                    cmd_iaso = f"docker stop {fault['location']}"
                     self.info(f"Mimicing IASO: VM {self.if_iaso}", rela=self.start_time)
                 _ = subprocess.Popen(cmd_iaso, shell=True)
-        if fault.if_restart:
+        if fault["if_restart"]:
             time.sleep(5)
-            cmd_restart = f"docker restart {fault.location}"
+            cmd_restart = f"docker restart {fault['location']}"
             self.info("docker restart BEGINs", rela=self.start_time)
             p = subprocess.run(cmd_restart, shell=True)
             self.info("docker restart ENDs", rela=self.start_time)
             cur_time = self.get_current_ts()
-            if cur_time - fault_actually_begin_time < fault.duration_s:
+            if cur_time - fault_actually_begin_time < fault["duration_s"]:
                 self.info("after restart: fault command BEGINs", rela=self.start_time)
-                if fault.fault_type == "nw":
+                if fault["fault_type"] == "nw":
                     self._inject_network_fault(fault)
                 self.info("after restart: fault actually BEGINs", rela=self.start_time)
                 cur_time = self.get_current_ts()
-                delta_time = fault.duration_s - (cur_time - fault_actually_begin_time)
+                delta_time = fault["duration_s"] - (cur_time - fault_actually_begin_time)
                 if delta_time > 0:
                     time.sleep(delta_time)
             else:
@@ -413,56 +416,56 @@ class TestSystem:
                     rela=self.start_time,
                 )
         else:
-            time.sleep(fault.duration_s)
+            time.sleep(fault["duration_s"])
 
         self.info("fault command ENDs", rela=self.start_time)
         self._clear_fault(fault)
         self.info("fault actually ENDs", rela=self.start_time)
 
     def _clear_fault(self, fault: SlowFault) -> None:
-        if fault.fault_type == "nw":
-            self._injector.clear("nw", fault.location)
-        elif fault.fault_type in ("cpu", "mem"):
-            self._injector.clear(fault.fault_type, fault.location)
-        elif fault.fault_type == "fs":
-            self._injector.clear("fs", fault.location)
+        if fault["fault_type"] == "nw":
+            self._injector.clear("nw", fault["location"])
+        elif fault["fault_type"] in ("cpu", "mem"):
+            self._injector.clear(fault["fault_type"], fault["location"])
+        elif fault["fault_type"] == "fs":
+            self._injector.clear("fs", fault["location"])
 
     def _inject_network_fault(self, fault: SlowFault) -> None:
-        kind, value = self._parse_severity(fault.severity)
+        kind, value = self._parse_severity(fault["severity"])
         self.info(
-            f"Injecting network fault: {kind}={value} on {fault.location}", rela=self.start_time
+            f"Injecting network fault: {kind}={value} on {fault['location']}", rela=self.start_time
         )
-        self._injector.inject("nw", fault.location, kind=kind, value=value)
-        self.info(f"Network fault injected on {fault.location}", rela=self.start_time)
+        self._injector.inject("nw", fault["location"], kind=kind, value=value)
+        self.info(f"Network fault injected on {fault['location']}", rela=self.start_time)
 
     def _inject_cpu_fault(self, fault: SlowFault) -> None:
-        cpus = fault.severity.replace("cpus-", "")
-        self.info(f"Injecting CPU fault: cpus={cpus} on {fault.location}", rela=self.start_time)
-        self._injector.inject("cpu", fault.location, kind="cpu", value=cpus)
-        self.info(f"CPU fault injected on {fault.location}", rela=self.start_time)
+        cpus = fault["severity"].replace("cpus-", "")
+        self.info(f"Injecting CPU fault: cpus={cpus} on {fault['location']}", rela=self.start_time)
+        self._injector.inject("cpu", fault["location"], kind="cpu", value=cpus)
+        self.info(f"CPU fault injected on {fault['location']}", rela=self.start_time)
 
     def _inject_mem_fault(self, fault: SlowFault) -> None:
-        memory = fault.severity.replace("memory-", "")
+        memory = fault["severity"].replace("memory-", "")
         self.info(
-            f"Injecting memory fault: memory={memory} on {fault.location}", rela=self.start_time
+            f"Injecting memory fault: memory={memory} on {fault['location']}", rela=self.start_time
         )
-        self._injector.inject("mem", fault.location, kind="mem", value=memory)
-        self.info(f"Memory fault injected on {fault.location}", rela=self.start_time)
+        self._injector.inject("mem", fault["location"], kind="mem", value=memory)
+        self.info(f"Memory fault injected on {fault['location']}", rela=self.start_time)
 
     def _inject_process_fault(self, fault: SlowFault) -> None:
-        action = fault.severity
-        self.info(f"Injecting process fault: {action} on {fault.location}", rela=self.start_time)
-        self._injector.inject("process", fault.location, kind=action)
-        self.info(f"Process fault injected on {fault.location}", rela=self.start_time)
+        action = fault["severity"]
+        self.info(f"Injecting process fault: {action} on {fault['location']}", rela=self.start_time)
+        self._injector.inject("process", fault["location"], kind=action)
+        self.info(f"Process fault injected on {fault['location']}", rela=self.start_time)
 
     def _inject_fs_fault(self, fault: SlowFault, cfs_pattern=None) -> None:
-        delay_us = fault.severity.replace("slow-", "").replace("us", "")
+        delay_us = fault["severity"].replace("slow-", "").replace("us", "")
         self.info(
-            f"Injecting filesystem fault: delay={delay_us}us on {fault.location}",
+            f"Injecting filesystem fault: delay={delay_us}us on {fault['location']}",
             rela=self.start_time,
         )
-        self._injector.inject("fs", fault.location, delay=delay_us, pattern=cfs_pattern)
-        self.info(f"Filesystem fault injected on {fault.location}", rela=self.start_time)
+        self._injector.inject("fs", fault["location"], delay=delay_us, pattern=cfs_pattern)
+        self.info(f"Filesystem fault injected on {fault['location']}", rela=self.start_time)
 
     @staticmethod
     def _parse_severity(severity: str) -> tuple[str, int | float]:

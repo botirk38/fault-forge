@@ -26,7 +26,8 @@ from faultforge.trial import (
     BenchmarkConfig,
     SlowFaultKind,
     SystemConfig,
-    Trial,
+    fault_info,
+    load_trial,
 )
 
 _STRATEGY_CHOICES: dict[str, SearchStrategy] = {
@@ -136,8 +137,8 @@ def search_cmd(
         ora = Oracle.from_file(oracle)
         issue_id = issue_id or ora.configured_issue_id
 
-    sys_cfg = SystemConfig(name=system)
-    bm_cfg = BenchmarkConfig(name=benchmark)
+    sys_cfg: SystemConfig = {"name": system}
+    bm_cfg: BenchmarkConfig = {"name": benchmark}
 
     node_list = list(nodes) if nodes else ["leader", "follower"]
     model_list = cast(
@@ -167,11 +168,11 @@ def search_cmd(
         trials = cfg.bounded_trials(issue_id=issue_id)
         if output_json:
             for t in trials:
-                click.echo(json.dumps(asdict(t)))
+                click.echo(json.dumps(t))
         else:
             for t in trials:
-                fault_labels = ", ".join(f.info for f in t.faults)
-                click.echo(f"{t.trial_id}\t{fault_labels}")
+                fault_labels = ", ".join(fault_info(f) for f in t["faults"])
+                click.echo(f"{t['trial_id']}\t{fault_labels}")
         click.echo(f"{len(trials)} trial(s) planned", err=True)
         return
 
@@ -183,7 +184,7 @@ def search_cmd(
     else:
         for r in results:
             click.echo(
-                f"{r.trial_index}\t{r.trial.trial_id}\t{r.symptom_score}\t{r.oracle_success}"
+                f"{r.trial_index}\t{r.trial['trial_id']}\t{r.symptom_score}\t{r.oracle_success}"
             )
     click.echo(f"{len(results)} result(s)", err=True)
 
@@ -256,16 +257,16 @@ def experiment_cmd(
     for entry in raw.get("runs", []):
         ora: Oracle | None = None
         oracle_path = entry.get("oracle")
-        issue_id = entry.get("issue_id", "")
+        entry_issue_id = entry.get("issue_id", "")
         if oracle_path:
             ora = Oracle.from_file(Path(oracle_path))
-            issue_id = issue_id or ora.configured_issue_id
+            entry_issue_id = entry_issue_id or ora.configured_issue_id
 
-        sys_cfg = SystemConfig(
-            name=entry.get("system", "etcd"),
-            version=entry.get("system_version"),
-        )
-        bm_cfg = BenchmarkConfig(name=entry.get("benchmark", "ycsb"))
+        sys_cfg: SystemConfig = {"name": entry.get("system", "etcd")}
+        if entry.get("system_version"):
+            sys_cfg["version"] = entry["system_version"]
+
+        bm_cfg: BenchmarkConfig = {"name": entry.get("benchmark", "ycsb")}
 
         cfg = SearchConfig(
             system=sys_cfg,
@@ -284,12 +285,12 @@ def experiment_cmd(
             nw_severity_overrides=entry.get("nw_severity_overrides", []),
             fs_severity_overrides=entry.get("fs_severity_overrides", []),
         )
-        exp.add(entry["name"], cfg, issue_id=issue_id)
+        exp.add(entry["name"], cfg, issue_id=entry_issue_id)
 
     if dry_run:
         for name, cfg in exp.configs:
-            issue_id = exp.issue_ids.get(name, "")
-            trials = cfg.bounded_trials(issue_id=issue_id)
+            eid = exp.issue_ids.get(name, "")
+            trials = cfg.bounded_trials(issue_id=eid)
             click.echo(f"[{name}] {len(trials)} trial(s)")
         click.echo(f"{len(exp.configs)} config(s), dry-run complete", err=True)
         return
@@ -297,7 +298,8 @@ def experiment_cmd(
     results = ExperimentRunner(TrialRunner(rt)).run(exp)
     for r in results:
         status = "SYMPTOM" if r.any_symptom else "no symptom"
-        click.echo(f"[{r.name}] {r.top_match.trial.trial_id if r.top_match else 'n/a'} ({status})")
+        top_id = r.top_match.trial["trial_id"] if r.top_match else "n/a"
+        click.echo(f"[{r.name}] {top_id} ({status})")
     click.echo(f"{len(results)} config(s) completed", err=True)
 
 
@@ -350,7 +352,7 @@ def minimize_cmd(
     ora = Oracle.from_file(oracle)
 
     trial_data = json.loads(trial_file.read_text(encoding="utf-8"))
-    trial = Trial.from_dict(trial_data)
+    trial = load_trial(trial_data)
 
     config = MinimizationConfig(
         max_iterations=max_iterations,
@@ -367,8 +369,8 @@ def minimize_cmd(
         click.echo(
             json.dumps(
                 {
-                    "original": asdict(result.original),
-                    "minimized": asdict(result.minimized),
+                    "original": result.original,
+                    "minimized": result.minimized,
                     "iterations_used": result.iterations_used,
                     "reductions": [asdict(r) for r in result.reductions],
                     "final_score": result.final_score,
@@ -378,8 +380,8 @@ def minimize_cmd(
             )
         )
     else:
-        click.echo(f"Original:  {len(result.original.faults)} fault(s)")
-        click.echo(f"Minimized: {len(result.minimized.faults)} fault(s)")
+        click.echo(f"Original:  {len(result.original['faults'])} fault(s)")
+        click.echo(f"Minimized: {len(result.minimized['faults'])} fault(s)")
         click.echo(f"Iterations: {result.iterations_used}/{max_iterations}")
         click.echo(f"Final score: {result.final_score:.2f}")
         click.echo()
@@ -394,5 +396,5 @@ def minimize_cmd(
             click.echo("No reductions possible.")
         click.echo()
         click.echo("Minimal recipe faults:")
-        for i, f in enumerate(result.minimized.faults):
-            click.echo(f"  [{i}] {f.info}")
+        for i, f in enumerate(result.minimized["faults"]):
+            click.echo(f"  [{i}] {fault_info(f)}")

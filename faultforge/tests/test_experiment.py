@@ -8,14 +8,14 @@ from unittest.mock import MagicMock, patch
 
 from faultforge.experiment import Experiment, ExperimentResult, ExperimentRunner
 from faultforge.search import SearchConfig, SearchResult
-from faultforge.trial import BenchmarkConfig, SystemConfig, Trial
+from faultforge.trial import Trial, make_trial
 
 
-def _make_result(trial_id: str, score: float, success: bool, index: int) -> SearchResult:
-    trial = Trial(
+def _make_search_result(trial_id: str, score: float, success: bool, index: int) -> SearchResult:
+    trial: Trial = make_trial(
         trial_id=trial_id,
-        system=SystemConfig(name="etcd"),
-        benchmark=BenchmarkConfig(name="ycsb"),
+        system={"name": "etcd"},  # type: ignore[arg-type]
+        benchmark={"name": "ycsb"},  # type: ignore[arg-type]
         faults=[],
     )
     return SearchResult(
@@ -30,8 +30,8 @@ def _make_result(trial_id: str, score: float, success: bool, index: int) -> Sear
 class TestExperimentResult:
     def test_top_match_returns_first(self) -> None:
         results = [
-            _make_result("t1", 0.9, True, 0),
-            _make_result("t2", 0.3, False, 1),
+            _make_search_result("t1", 0.9, True, 0),
+            _make_search_result("t2", 0.3, False, 1),
         ]
         exp = ExperimentResult(
             name="test",
@@ -39,7 +39,7 @@ class TestExperimentResult:
             search_results=results,
         )
         assert exp.top_match is not None
-        assert exp.top_match.trial.trial_id == "t1"
+        assert exp.top_match.trial["trial_id"] == "t1"
 
     def test_top_match_none_when_empty(self) -> None:
         exp = ExperimentResult(
@@ -51,8 +51,8 @@ class TestExperimentResult:
 
     def test_any_symptom_true(self) -> None:
         results = [
-            _make_result("t1", 0.0, False, 0),
-            _make_result("t2", 0.5, True, 1),
+            _make_search_result("t1", 0.0, False, 0),
+            _make_search_result("t2", 0.5, True, 1),
         ]
         exp = ExperimentResult(
             name="test",
@@ -63,8 +63,8 @@ class TestExperimentResult:
 
     def test_any_symptom_false(self) -> None:
         results = [
-            _make_result("t1", 0.0, False, 0),
-            _make_result("t2", 0.1, False, 1),
+            _make_search_result("t1", 0.0, False, 0),
+            _make_search_result("t2", 0.1, False, 1),
         ]
         exp = ExperimentResult(
             name="test",
@@ -74,7 +74,7 @@ class TestExperimentResult:
         assert exp.any_symptom is False
 
     def test_summary(self) -> None:
-        results = [_make_result("t1", 0.7, True, 0)]
+        results = [_make_search_result("t1", 0.7, True, 0)]
         exp = ExperimentResult(
             name="exp1",
             search_config=MagicMock(),
@@ -94,8 +94,8 @@ class TestExperiment:
     def test_add_config(self) -> None:
         exp = Experiment(name="my-exp", configs=[])
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb"},  # type: ignore[arg-type]
         )
         exp.add("baseline", cfg, issue_id="BUG-1")
         assert len(exp.configs) == 1
@@ -106,8 +106,8 @@ class TestExperiment:
 class TestExperimentRunner:
     def test_run_writes_files(self, tmp_path: Path) -> None:
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb"},  # type: ignore[arg-type]
             max_trials=1,
         )
         exp = Experiment(
@@ -116,7 +116,7 @@ class TestExperimentRunner:
             output_dir=tmp_path,
         )
 
-        fake_result = _make_result("t1", 0.5, False, 0)
+        fake_result = _make_search_result("t1", 0.5, False, 0)
 
         with patch("faultforge.experiment.Searcher") as mock_searcher_cls:
             mock_searcher = MagicMock()

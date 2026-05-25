@@ -26,10 +26,10 @@ SYSTEMS: dict[str, type[TestSystem]] = {
 def create_system(trial: Trial) -> TestSystem:
     """Build a system instance from a Trial using the registry."""
     try:
-        system_cls = SYSTEMS[trial.system.name]
+        system_cls = SYSTEMS[trial["system"]["name"]]
     except KeyError:
         supported = ", ".join(sorted(SYSTEMS))
         raise ValueError(
-            f"Unsupported system {trial.system.name!r}. Supported systems: {supported}"
+            f"Unsupported system {trial['system']['name']!r}. Supported systems: {supported}"
         ) from None
     return system_cls.from_trial(trial)

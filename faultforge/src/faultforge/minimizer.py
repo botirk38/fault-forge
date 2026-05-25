@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from faultforge.oracle import Oracle, OracleResult
 from faultforge.runner import RunTrial
 from faultforge.severity import build_severity, parse_severity_ms
-from faultforge.trial import Trial
+from faultforge.trial import Trial, fault_info
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ class Minimizer:
         trial, count_steps = self._reduce_fault_count(trial, budget)
         reductions.extend(count_steps)
 
-        for fault_idx in range(len(trial.faults)):
+        for fault_idx in range(len(trial["faults"])):
             if budget.exhausted:
                 break
             trial, steps = self._reduce_magnitude(trial, fault_idx, budget)
@@ -133,27 +133,28 @@ class Minimizer:
     ) -> tuple[Trial, list[ReductionStep]]:
         """Try removing each fault; keep removals that preserve reproduction."""
         reductions: list[ReductionStep] = []
-        if len(trial.faults) <= 1:
+        if len(trial["faults"]) <= 1:
             return trial, reductions
 
         idx = 0
-        while idx < len(trial.faults) and len(trial.faults) > 1 and not budget.exhausted:
+        while idx < len(trial["faults"]) and len(trial["faults"]) > 1 and not budget.exhausted:
             candidate = copy.deepcopy(trial)
-            removed = candidate.faults.pop(idx)
+            removed = candidate["faults"].pop(idx)
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
+                info = fault_info(removed)
                 logger.info(
                     "Removed fault %d (%s) — still reproduces (score=%.2f)",
                     idx,
-                    removed.info,
+                    info,
                     result.score,
                 )
                 reductions.append(
                     ReductionStep(
                         dimension="fault_count",
                         fault_index=idx,
-                        before=removed.info,
+                        before=info,
                         after="removed",
                         score=result.score,
                     )
@@ -168,10 +169,10 @@ class Minimizer:
         self, trial: Trial, fault_idx: int, budget: _Budget
     ) -> tuple[Trial, list[ReductionStep]]:
         """Binary search for minimum severity on a single fault."""
-        fault = trial.faults[fault_idx]
-        original_severity = fault.severity
+        fault = trial["faults"][fault_idx]
+        original_severity = fault["severity"]
 
-        current_ms = parse_severity_ms(fault.fault_type, fault.severity)
+        current_ms = parse_severity_ms(fault["fault_type"], fault["severity"])
         if current_ms is None:
             return trial, []
 
@@ -189,8 +190,8 @@ class Minimizer:
                 break
 
             candidate = copy.deepcopy(trial)
-            new_severity = build_severity(fault.fault_type, mid)
-            candidate.faults[fault_idx].severity = new_severity
+            new_severity = build_severity(fault["fault_type"], mid)
+            candidate["faults"][fault_idx]["severity"] = new_severity
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -203,7 +204,7 @@ class Minimizer:
         reductions: list[ReductionStep] = []
         if best_severity != original_severity:
             trial = copy.deepcopy(trial)
-            trial.faults[fault_idx].severity = best_severity
+            trial["faults"][fault_idx]["severity"] = best_severity
             reductions.append(
                 ReductionStep(
                     dimension="magnitude",
@@ -220,8 +221,8 @@ class Minimizer:
         self, trial: Trial, fault_idx: int, budget: _Budget
     ) -> tuple[Trial, list[ReductionStep]]:
         """Binary search for minimum duration on a single fault."""
-        fault = trial.faults[fault_idx]
-        original_duration = fault.duration_s
+        fault = trial["faults"][fault_idx]
+        original_duration = fault["duration_s"]
 
         if original_duration <= 1:
             return trial, []
@@ -240,7 +241,7 @@ class Minimizer:
                 break
 
             candidate = copy.deepcopy(trial)
-            candidate.faults[fault_idx].duration_s = mid
+            candidate["faults"][fault_idx]["duration_s"] = mid
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -253,7 +254,7 @@ class Minimizer:
         reductions: list[ReductionStep] = []
         if best_duration != original_duration:
             trial = copy.deepcopy(trial)
-            trial.faults[fault_idx].duration_s = best_duration
+            trial["faults"][fault_idx]["duration_s"] = best_duration
             reductions.append(
                 ReductionStep(
                     dimension="duration",
@@ -270,10 +271,11 @@ class Minimizer:
         self, trial: Trial, fault_idx: int, budget: _Budget
     ) -> tuple[Trial, list[ReductionStep]]:
         """Binary search for latest start time that still reproduces."""
-        fault = trial.faults[fault_idx]
-        original_start = fault.start_s
+        fault = trial["faults"][fault_idx]
+        original_start = fault["start_s"]
 
-        max_start = trial.benchmark.exec_time_s - fault.duration_s
+        exec_time = trial["benchmark"].get("exec_time_s", 150)
+        max_start = exec_time - fault["duration_s"]
         if max_start <= original_start:
             return trial, []
 
@@ -291,7 +293,7 @@ class Minimizer:
                 break
 
             candidate = copy.deepcopy(trial)
-            candidate.faults[fault_idx].start_s = mid
+            candidate["faults"][fault_idx]["start_s"] = mid
 
             result = self._evaluate(candidate, budget)
             if self._is_reproduced(result):
@@ -304,7 +306,7 @@ class Minimizer:
         reductions: list[ReductionStep] = []
         if best_start != original_start:
             trial = copy.deepcopy(trial)
-            trial.faults[fault_idx].start_s = best_start
+            trial["faults"][fault_idx]["start_s"] = best_start
             reductions.append(
                 ReductionStep(
                     dimension="timing",
@@ -326,16 +328,16 @@ class Minimizer:
         budget.spend()
         trial_result = self._runner.run(trial)
 
-        if not trial_result.success or not trial_result.artifacts:
+        if not trial_result["success"] or not trial_result.get("artifacts"):
             return OracleResult(
                 issue_id=self._oracle.configured_issue_id,
                 valid=False,
                 reproduced=False,
                 score=0.0,
-                details={"error": trial_result.error or "trial failed"},
+                details={"error": trial_result.get("error") or "trial failed"},
             )
 
-        return self._oracle.evaluate(artifacts=trial_result.artifacts)
+        return self._oracle.evaluate(artifacts=trial_result["artifacts"])
 
     def _is_reproduced(self, result: OracleResult) -> bool:
         return result.reproduced and result.score >= self._config.score_threshold

@@ -39,7 +39,7 @@ class ExperimentResult:
             "total_trials": len(self.search_results),
             "any_symptom": self.any_symptom,
             "top_score": self.top_match.symptom_score if self.top_match else 0.0,
-            "top_trial": self.top_match.trial.trial_id if self.top_match else None,
+            "top_trial": self.top_match.trial["trial_id"] if self.top_match else None,
         }
 
 
@@ -98,7 +98,7 @@ class ExperimentRunner:
         for r in results:
             trial_rows = [
                 {
-                    "trial_id": sr.trial.trial_id,
+                    "trial_id": sr.trial["trial_id"],
                     "symptom_score": sr.symptom_score,
                     "oracle_success": sr.oracle_success,
                     "trial_index": sr.trial_index,

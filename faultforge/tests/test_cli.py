@@ -10,7 +10,7 @@ from click.testing import CliRunner
 
 from faultforge.cli import main
 from faultforge.search import SearchConfig
-from faultforge.trial import Trial
+from faultforge.trial import Trial, make_trial
 
 _ISSUE_ORACLE_YAML = """
 issue:
@@ -25,11 +25,11 @@ oracle:
 
 
 def test_search_command_runs_without_oracle() -> None:
-    trial = Trial(
+    trial: Trial = make_trial(
         trial_id="trial-a-nw-10ms",
         faults=[],
-        system=MagicMock(),
-        benchmark=MagicMock(),
+        system={"name": "etcd"},  # type: ignore[arg-type]
+        benchmark={"name": "ycsb"},  # type: ignore[arg-type]
     )
     fake_results = [
         MagicMock(
@@ -250,7 +250,9 @@ def test_experiment_runs_and_writes_files(tmp_path: Path) -> None:
         mock_result = MagicMock()
         mock_result.name = "baseline"
         mock_result.any_symptom = False
-        mock_result.top_match.trial.trial_id = "trial-nw-leader-slow-10ms"
+        mock_result.top_match.trial.__getitem__ = lambda self, key: (
+            "trial-nw-leader-slow-10ms" if key == "trial_id" else None
+        )
         mock_runner.run.return_value = [mock_result]
         mock_runner_cls.return_value = mock_runner
 

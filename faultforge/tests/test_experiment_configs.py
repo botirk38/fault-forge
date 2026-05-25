@@ -8,7 +8,6 @@ import yaml
 
 from faultforge.oracle import Oracle, OracleConfig, RuleGroup, RuleLeaf
 from faultforge.search import SearchConfig
-from faultforge.trial import BenchmarkConfig, SystemConfig
 
 EXPERIMENTS_DIR = Path(__file__).parent.parent / "experiments"
 ORACLES_DIR = EXPERIMENTS_DIR / "oracles"
@@ -104,8 +103,8 @@ class TestSeverityOverrides:
 
     def test_nw_flaky_pcts_generates_flaky_faults(self) -> None:
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[10],
@@ -114,7 +113,7 @@ class TestSeverityOverrides:
             nw_flaky_pcts=[0.1, 1.0, 10.0],
         )
         trials = cfg.full_grid_trials()
-        severities = {t.faults[0].severity for t in trials}
+        severities = {t["faults"][0]["severity"] for t in trials}
         assert "slow-10ms" in severities
         assert "flaky-p0.1" in severities
         assert "flaky-p1.0" in severities
@@ -122,8 +121,8 @@ class TestSeverityOverrides:
 
     def test_nw_severity_overrides_replaces_defaults(self) -> None:
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[10, 50],
@@ -132,13 +131,13 @@ class TestSeverityOverrides:
             nw_severity_overrides=["slow-1ms", "partition"],
         )
         trials = cfg.full_grid_trials()
-        severities = {t.faults[0].severity for t in trials}
+        severities = {t["faults"][0]["severity"] for t in trials}
         assert severities == {"slow-1ms", "partition"}
 
     def test_fs_severity_overrides_replaces_defaults(self) -> None:
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["fs"],
             magnitudes_ms=[1000, 5000],
@@ -147,13 +146,13 @@ class TestSeverityOverrides:
             fs_severity_overrides=["slow-999us", "slow-12345us"],
         )
         trials = cfg.full_grid_trials()
-        severities = {t.faults[0].severity for t in trials}
+        severities = {t["faults"][0]["severity"] for t in trials}
         assert severities == {"slow-999us", "slow-12345us"}
 
     def test_empty_overrides_use_defaults(self) -> None:
         cfg = SearchConfig(
-            system=SystemConfig(name="etcd"),
-            benchmark=BenchmarkConfig(name="ycsb"),
+            system={"name": "etcd"},
+            benchmark={"name": "ycsb"},
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[100],
@@ -161,7 +160,7 @@ class TestSeverityOverrides:
             durations_s=[30],
         )
         trials = cfg.full_grid_trials()
-        assert trials[0].faults[0].severity == "slow-100ms"
+        assert trials[0]["faults"][0]["severity"] == "slow-100ms"
 
 
 class TestOracleSeverityThreshold:

@@ -8,7 +8,7 @@ import tempfile
 from faultforge.minimizer import MinimizationConfig, Minimizer
 from faultforge.oracle import Oracle
 from faultforge.severity import build_severity, parse_severity_ms
-from faultforge.trial import BenchmarkConfig, SlowFault, SystemConfig, Trial, TrialResult
+from faultforge.trial import Trial, TrialResult, load_trial, make_fault, make_trial
 
 # --- Test helpers ---
 
@@ -34,14 +34,14 @@ class _MockRunner:
         produces_symptom = self.always_reproduces
 
         if self._fail_below_ms is not None:
-            for fault in trial.faults:
-                ms = parse_severity_ms(fault.fault_type, fault.severity)
+            for fault in trial["faults"]:
+                ms = parse_severity_ms(fault["fault_type"], fault["severity"])
                 if ms is not None and ms < self._fail_below_ms:
                     produces_symptom = False
 
         if self._fail_below_duration is not None:
-            for fault in trial.faults:
-                if fault.duration_s < self._fail_below_duration:
+            for fault in trial["faults"]:
+                if fault["duration_s"] < self._fail_below_duration:
                     produces_symptom = False
 
         if produces_symptom:
@@ -55,12 +55,12 @@ class _MockRunner:
         log_file.write(log_content)
         log_file.close()
 
-        return TrialResult(
-            success=True,
-            trial=trial,
-            log_path=log_file.name,
-            artifacts={"compose": log_file.name},
-        )
+        return {
+            "success": True,
+            "trial": trial,
+            "log_path": log_file.name,
+            "artifacts": {"compose": log_file.name},
+        }
 
 
 def _make_oracle() -> Oracle:
@@ -72,7 +72,7 @@ def _make_oracle() -> Oracle:
     )
 
 
-def _make_trial(
+def _make_test_trial(
     severity: str = "slow-100ms",
     duration_s: int = 60,
     start_s: int = 0,
@@ -80,8 +80,8 @@ def _make_trial(
     num_faults: int = 1,
 ) -> Trial:
     faults = [
-        SlowFault(
-            fault_type=fault_type,
+        make_fault(
+            fault_type=fault_type,  # type: ignore[arg-type]
             location=f"node{i + 1}",
             duration_s=duration_s,
             severity=severity,
@@ -89,10 +89,10 @@ def _make_trial(
         )
         for i in range(num_faults)
     ]
-    return Trial(
+    return make_trial(
         trial_id="test-trial",
-        system=SystemConfig(name="etcd"),
-        benchmark=BenchmarkConfig(name="ycsb", exec_time_s=150),
+        system={"name": "etcd"},  # type: ignore[arg-type]
+        benchmark={"name": "ycsb", "exec_time_s": 150},  # type: ignore[arg-type]
         faults=faults,
         issue_id="TEST-001",
     )
@@ -176,20 +176,20 @@ class TestMinimizerBasic:
         runner = _MockRunner(always_reproduces=False)
         oracle = _make_oracle()
         minimizer = Minimizer(runner, oracle)
-        trial = _make_trial()
+        trial = _make_test_trial()
 
         result = minimizer.minimize(trial)
 
         assert result.iterations_used == 1
         assert result.reductions == []
         assert result.final_score == 0.0
-        assert result.minimized.faults[0].severity == "slow-100ms"
+        assert result.minimized["faults"][0]["severity"] == "slow-100ms"
 
     def test_reproducing_trial_attempts_reductions(self):
         runner = _MockRunner(always_reproduces=True)
         oracle = _make_oracle()
         minimizer = Minimizer(runner, oracle)
-        trial = _make_trial()
+        trial = _make_test_trial()
 
         result = minimizer.minimize(trial)
 
@@ -201,11 +201,10 @@ class TestMinimizerBasic:
         oracle = _make_oracle()
         config = MinimizationConfig(max_iterations=5)
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial()
+        trial = _make_test_trial()
 
         result = minimizer.minimize(trial)
 
-        # Budget controls reduction iterations; +1 for initial verify, +1 for final score
         assert result.iterations_used <= config.max_iterations + 2
         reduction_iters = result.iterations_used - 2
         assert reduction_iters <= config.max_iterations
@@ -219,11 +218,11 @@ class TestFaultCountReduction:
             max_iterations=20, magnitude_steps=0, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(num_faults=3)
+        trial = _make_test_trial(num_faults=3)
 
         result = minimizer.minimize(trial)
 
-        assert len(result.minimized.faults) == 1
+        assert len(result.minimized["faults"]) == 1
         reductions = [r for r in result.reductions if r.dimension == "fault_count"]
         assert len(reductions) == 2
 
@@ -234,11 +233,11 @@ class TestFaultCountReduction:
             max_iterations=20, magnitude_steps=0, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(num_faults=1)
+        trial = _make_test_trial(num_faults=1)
 
         result = minimizer.minimize(trial)
 
-        assert len(result.minimized.faults) == 1
+        assert len(result.minimized["faults"]) == 1
 
 
 class TestMagnitudeReduction:
@@ -250,13 +249,13 @@ class TestMagnitudeReduction:
             max_iterations=30, magnitude_steps=8, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="slow-100ms")
+        trial = _make_test_trial(severity="slow-100ms")
 
         result = minimizer.minimize(trial)
 
         mag_reductions = [r for r in result.reductions if r.dimension == "magnitude"]
         assert len(mag_reductions) == 1
-        final_ms = parse_severity_ms("nw", result.minimized.faults[0].severity)
+        final_ms = parse_severity_ms("nw", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms < 100.0
         assert final_ms >= 20.0
@@ -269,11 +268,11 @@ class TestMagnitudeReduction:
             max_iterations=30, magnitude_steps=8, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="slow-100ms")
+        trial = _make_test_trial(severity="slow-100ms")
 
         result = minimizer.minimize(trial)
 
-        final_ms = parse_severity_ms("nw", result.minimized.faults[0].severity)
+        final_ms = parse_severity_ms("nw", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms >= 95.0
 
@@ -284,13 +283,13 @@ class TestMagnitudeReduction:
             max_iterations=30, magnitude_steps=8, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="restart", fault_type="process")
+        trial = _make_test_trial(severity="restart", fault_type="process")
 
         result = minimizer.minimize(trial)
 
         mag_reductions = [r for r in result.reductions if r.dimension == "magnitude"]
         assert len(mag_reductions) == 0
-        assert result.minimized.faults[0].severity == "restart"
+        assert result.minimized["faults"][0]["severity"] == "restart"
 
 
 class TestDurationReduction:
@@ -302,14 +301,14 @@ class TestDurationReduction:
             max_iterations=30, magnitude_steps=0, duration_steps=5, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(duration_s=60)
+        trial = _make_test_trial(duration_s=60)
 
         result = minimizer.minimize(trial)
 
         dur_reductions = [r for r in result.reductions if r.dimension == "duration"]
         assert len(dur_reductions) == 1
-        assert result.minimized.faults[0].duration_s < 60
-        assert result.minimized.faults[0].duration_s >= 10
+        assert result.minimized["faults"][0]["duration_s"] < 60
+        assert result.minimized["faults"][0]["duration_s"] >= 10
 
     def test_skips_duration_1(self):
         runner = _MockRunner(always_reproduces=True)
@@ -318,7 +317,7 @@ class TestDurationReduction:
             max_iterations=30, magnitude_steps=0, duration_steps=5, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(duration_s=1)
+        trial = _make_test_trial(duration_s=1)
 
         result = minimizer.minimize(trial)
 
@@ -334,13 +333,13 @@ class TestTimingReduction:
             max_iterations=30, magnitude_steps=0, duration_steps=0, timing_steps=5
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(start_s=0, duration_s=30)
+        trial = _make_test_trial(start_s=0, duration_s=30)
 
         result = minimizer.minimize(trial)
 
         time_reductions = [r for r in result.reductions if r.dimension == "timing"]
         assert len(time_reductions) == 1
-        assert result.minimized.faults[0].start_s > 0
+        assert result.minimized["faults"][0]["start_s"] > 0
 
     def test_no_timing_reduction_when_no_room(self):
         runner = _MockRunner(always_reproduces=True)
@@ -349,7 +348,7 @@ class TestTimingReduction:
             max_iterations=30, magnitude_steps=0, duration_steps=0, timing_steps=5
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(start_s=0, duration_s=150)
+        trial = _make_test_trial(start_s=0, duration_s=150)
 
         result = minimizer.minimize(trial)
 
@@ -365,7 +364,7 @@ class TestFullMinimization:
         oracle = _make_oracle()
         config = MinimizationConfig(max_iterations=50)
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="slow-100ms", duration_s=60, start_s=0)
+        trial = _make_test_trial(severity="slow-100ms", duration_s=60, start_s=0)
 
         result = minimizer.minimize(trial)
 
@@ -381,13 +380,13 @@ class TestFullMinimization:
         oracle = _make_oracle()
         config = MinimizationConfig(max_iterations=50)
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="slow-100ms", duration_s=60, num_faults=3)
+        trial = _make_test_trial(severity="slow-100ms", duration_s=60, num_faults=3)
 
         result = minimizer.minimize(trial)
 
-        assert len(result.minimized.faults) < 3
-        for f in result.minimized.faults:
-            ms = parse_severity_ms("nw", f.severity)
+        assert len(result.minimized["faults"]) < 3
+        for f in result.minimized["faults"]:
+            ms = parse_severity_ms("nw", f["severity"])
             assert ms is not None
             assert ms < 100.0
 
@@ -397,12 +396,12 @@ class TestMinimizationResult:
         runner = _MockRunner(always_reproduces=True)
         oracle = _make_oracle()
         minimizer = Minimizer(runner, oracle)
-        trial = _make_trial(severity="slow-100ms", duration_s=60)
+        trial = _make_test_trial(severity="slow-100ms", duration_s=60)
 
         result = minimizer.minimize(trial)
 
-        assert result.original.faults[0].severity == "slow-100ms"
-        assert result.original.faults[0].duration_s == 60
+        assert result.original["faults"][0]["severity"] == "slow-100ms"
+        assert result.original["faults"][0]["duration_s"] == 60
 
     def test_fs_severity_reduction(self):
         runner = _MockRunner(always_reproduces=True)
@@ -412,31 +411,28 @@ class TestMinimizationResult:
             max_iterations=30, magnitude_steps=8, duration_steps=0, timing_steps=0
         )
         minimizer = Minimizer(runner, oracle, config)
-        trial = _make_trial(severity="100000", fault_type="fs")
+        trial = _make_test_trial(severity="100000", fault_type="fs")
 
         result = minimizer.minimize(trial)
 
         mag_reductions = [r for r in result.reductions if r.dimension == "magnitude"]
         assert len(mag_reductions) == 1
-        final_ms = parse_severity_ms("fs", result.minimized.faults[0].severity)
+        final_ms = parse_severity_ms("fs", result.minimized["faults"][0]["severity"])
         assert final_ms is not None
         assert final_ms < 100000.0
         assert final_ms >= 20000.0
 
 
-class TestTrialFromDict:
+class TestLoadTrial:
     def test_roundtrip(self):
-        trial = _make_trial(severity="slow-50ms", duration_s=30, num_faults=2)
-        from dataclasses import asdict
+        trial = _make_test_trial(severity="slow-50ms", duration_s=30, num_faults=2)
+        restored = load_trial(trial)
 
-        data = asdict(trial)
-        restored = Trial.from_dict(data)
-
-        assert restored.trial_id == trial.trial_id
-        assert restored.system.name == trial.system.name
-        assert len(restored.faults) == 2
-        assert restored.faults[0].severity == "slow-50ms"
-        assert restored.faults[0].duration_s == 30
+        assert restored["trial_id"] == trial["trial_id"]
+        assert restored["system"]["name"] == trial["system"]["name"]
+        assert len(restored["faults"]) == 2
+        assert restored["faults"][0]["severity"] == "slow-50ms"
+        assert restored["faults"][0]["duration_s"] == 30
 
     def test_minimal_dict(self):
         data = {
@@ -452,9 +448,9 @@ class TestTrialFromDict:
                 }
             ],
         }
-        trial = Trial.from_dict(data)
+        trial = load_trial(data)
 
-        assert trial.system.name == "kafka"
-        assert trial.benchmark.exec_time_s == 120
-        assert len(trial.faults) == 1
-        assert trial.faults[0].location == "broker1"
+        assert trial["system"]["name"] == "kafka"
+        assert trial["benchmark"]["exec_time_s"] == 120
+        assert len(trial["faults"]) == 1
+        assert trial["faults"][0]["location"] == "broker1"

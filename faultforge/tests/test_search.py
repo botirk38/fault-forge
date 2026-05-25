@@ -12,7 +12,7 @@ from faultforge.search import (
     SearchConfig,
     Searcher,
 )
-from faultforge.trial import BenchmarkConfig, SlowFault, SystemConfig, Trial, TrialResult
+from faultforge.trial import Trial, TrialResult
 
 
 class _FakeRunner:
@@ -23,21 +23,19 @@ class _FakeRunner:
 
     def run(self, trial: Trial) -> TrialResult:
         self.completed_runs += 1
-        return TrialResult(
-            success=True,
-            trial=trial,
-            log_path=f"/tmp/trial-{self.completed_runs}.log",
-            artifacts={"info": f"/tmp/info-{self.completed_runs}.log"},
-        )
+        return {
+            "success": True,
+            "trial": trial,
+            "log_path": f"/tmp/trial-{self.completed_runs}.log",
+            "artifacts": {"info": f"/tmp/info-{self.completed_runs}.log"},
+        }
 
 
 class TestTrialEnumeration:
     def test_single_trial_from_grid(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["node1"],
             fault_models=["nw"],
             magnitudes_ms=[100],
@@ -47,22 +45,19 @@ class TestTrialEnumeration:
         outs = cfg.full_grid_trials(issue_id="iss")
         assert len(outs) == 1
         trial = outs[0]
-        assert trial.issue_id == "iss"
-        assert len(trial.faults) == 1
-        f = trial.faults[0]
-        assert isinstance(f, SlowFault)
-        assert f.location == "node1"
-        assert f.fault_type == "nw"
-        assert f.duration_s == 30
-        assert f.severity == "slow-100ms"
-        assert f.start_s == 0
+        assert trial["issue_id"] == "iss"
+        assert len(trial["faults"]) == 1
+        f = trial["faults"][0]
+        assert f["location"] == "node1"
+        assert f["fault_type"] == "nw"
+        assert f["duration_s"] == 30
+        assert f["severity"] == "slow-100ms"
+        assert f["start_s"] == 0
 
     def test_multiple_trials_from_grid(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["leader", "follower"],
             fault_models=["nw"],
             magnitudes_ms=[50, 100],
@@ -72,9 +67,10 @@ class TestTrialEnumeration:
         assert len(cfg.full_grid_trials()) == 4
 
     def test_default_grid_values(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
-        cfg = SearchConfig(system=sy, benchmark=bm)
+        cfg = SearchConfig(
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
+        )
         assert "leader" in cfg.nodes
         assert "nw" in cfg.fault_models
         assert "fs" in cfg.fault_models
@@ -83,11 +79,9 @@ class TestTrialEnumeration:
 
 class TestSearchStrategies:
     def test_random_subset_respects_seed(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["a", "b"],
             fault_models=["nw"],
             magnitudes_ms=[10, 20],
@@ -97,16 +91,14 @@ class TestSearchStrategies:
             strategy=RANDOM_SUBSET_GRID,
             strategy_seed=42,
         )
-        run1 = [t.trial_id for t in cfg.bounded_trials(issue_id="x")]
-        run2 = [t.trial_id for t in cfg.bounded_trials(issue_id="x")]
+        run1 = [t["trial_id"] for t in cfg.bounded_trials(issue_id="x")]
+        run2 = [t["trial_id"] for t in cfg.bounded_trials(issue_id="x")]
         assert run1 == run2
 
     def test_shuffled_differs_from_exhaustive_prefix(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[1, 2, 3],
@@ -114,10 +106,10 @@ class TestSearchStrategies:
             durations_s=[30],
             max_trials=3,
         )
-        ex = [t.trial_id for t in cfg.bounded_trials(issue_id="")]
+        ex = [t["trial_id"] for t in cfg.bounded_trials(issue_id="")]
         cf2 = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system=cfg.system,
+            benchmark=cfg.benchmark,
             nodes=cfg.nodes,
             fault_models=cfg.fault_models,
             magnitudes_ms=cfg.magnitudes_ms,
@@ -127,17 +119,15 @@ class TestSearchStrategies:
             strategy=SHUFFLED_GRID,
             strategy_seed=123,
         )
-        sh = [t.trial_id for t in cf2.bounded_trials(issue_id="")]
+        sh = [t["trial_id"] for t in cf2.bounded_trials(issue_id="")]
         assert ex != sh
 
 
 class TestSearchRunner:
     def test_search_runs_all_trials_when_small_grid(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["n1"],
             fault_models=["nw"],
             magnitudes_ms=[50],
@@ -148,23 +138,21 @@ class TestSearchRunner:
         runner = TrialRunner()
 
         with patch.object(runner, "run") as mock_run:
-            mock_run.return_value = TrialResult(
-                success=True,
-                trial=cfg.bounded_trials(issue_id="TEST-1")[0],
-                log_path="/tmp/test.log",
-            )
+            mock_run.return_value = {
+                "success": True,
+                "trial": cfg.bounded_trials(issue_id="TEST-1")[0],
+                "log_path": "/tmp/test.log",
+            }
             results = Searcher(runner).run(cfg, issue_id="TEST-1")
 
         assert len(results) == 1
-        assert results[0].trial.issue_id == "TEST-1"
+        assert results[0].trial["issue_id"] == "TEST-1"
         assert results[0].symptom_score == 0.0
 
     def test_search_respects_max_trials(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["n1", "n2"],
             fault_models=["nw", "fs"],
             magnitudes_ms=[50, 100],
@@ -175,21 +163,19 @@ class TestSearchRunner:
         runner = TrialRunner()
 
         with patch.object(runner, "run") as mock_run:
-            mock_run.return_value = TrialResult(
-                success=True,
-                trial=cfg.bounded_trials()[0],
-                log_path="/tmp/test.log",
-            )
+            mock_run.return_value = {
+                "success": True,
+                "trial": cfg.bounded_trials()[0],
+                "log_path": "/tmp/test.log",
+            }
             results = Searcher(runner).run(cfg)
 
         assert len(results) == 3
 
     def test_search_ranked_by_score(self):
-        sy = SystemConfig(name="etcd")
-        bm = BenchmarkConfig.ycsb(workload="a")
         cfg = SearchConfig(
-            system=sy,
-            benchmark=bm,
+            system={"name": "etcd"},  # type: ignore[arg-type]
+            benchmark={"name": "ycsb", "workload": "a"},  # type: ignore[arg-type]
             nodes=["n1", "n2"],
             fault_models=["nw"],
             magnitudes_ms=[50, 100],
