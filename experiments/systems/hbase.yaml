@@ -1,0 +1,36 @@
+name: hbase
+image: apache/hbase:2.5.7
+cluster_size: 4
+startup_wait_s: 30
+post_inject_wait_s: 20
+node_map:
+  node1: hbase-master
+  node2: hbase-rs1
+  node3: hbase-rs2
+  leader: hbase-master
+  regionserver: hbase-rs1
+start_commands:
+  - >-
+    docker run -d --name hbase-zk --net {network}
+    -e HBASE_CONF_hbase_zookeeper_quorum=hbase-zk
+    zookeeper:3.8
+  - >-
+    docker run -d --name hbase-master --net {network}
+    -e HBASE_CONF_hbase_zookeeper_quorum=hbase-zk
+    -e HBASE_CONF_hbase_master_hostname=hbase-master
+    {image} master start
+  - >-
+    docker run -d --name hbase-rs1 --net {network}
+    -e HBASE_CONF_hbase_zookeeper_quorum=hbase-zk
+    -e HBASE_CONF_hbase_regionserver_hostname=hbase-rs1
+    {image} regionserver start
+  - >-
+    docker run -d --name hbase-rs2 --net {network}
+    -e HBASE_CONF_hbase_zookeeper_quorum=hbase-zk
+    -e HBASE_CONF_hbase_regionserver_hostname=hbase-rs2
+    {image} regionserver start
+workload_command: >-
+  docker exec hbase-master hbase status 2>&1
+stop_commands:
+  - docker rm -f hbase-master hbase-rs1 hbase-rs2 hbase-zk
+  - docker network rm {network}

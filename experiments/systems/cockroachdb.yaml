@@ -1,0 +1,31 @@
+name: cockroachdb
+image: cockroachdb/cockroach:v23.2.0
+cluster_size: 3
+startup_wait_s: 15
+post_inject_wait_s: 15
+node_map:
+  node1: crdb1
+  node2: crdb2
+  node3: crdb3
+  leader: crdb1
+start_commands:
+  - >-
+    docker run -d --name crdb1 --net {network}
+    {image} start --insecure --join=crdb1,crdb2,crdb3
+    --advertise-addr=crdb1
+  - >-
+    docker run -d --name crdb2 --net {network}
+    {image} start --insecure --join=crdb1,crdb2,crdb3
+    --advertise-addr=crdb2
+  - >-
+    docker run -d --name crdb3 --net {network}
+    {image} start --insecure --join=crdb1,crdb2,crdb3
+    --advertise-addr=crdb3
+init_command: >-
+  docker exec crdb1 ./cockroach init --insecure
+workload_command: >-
+  docker exec crdb2 ./cockroach node status --insecure 2>&1 || true;
+  docker exec crdb2 ./cockroach sql --insecure -e "SELECT 1" 2>&1 || true
+stop_commands:
+  - docker rm -f crdb1 crdb2 crdb3
+  - docker network rm {network}

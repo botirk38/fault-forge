@@ -2,7 +2,7 @@ name: redis
 image: redis:7.2
 cluster_size: 6
 startup_wait_s: 5
-post_inject_wait_s: 15
+post_inject_wait_s: 20
 node_map:
   node1: redis1
   node2: redis2
@@ -35,7 +35,10 @@ start_commands:
     docker run -d --name redis6 --net {network} {image}
     redis-server --cluster-enabled yes
     --cluster-config-file nodes.conf --cluster-node-timeout 5000 --appendonly yes
-init_command: __redis_cluster_create__
+init_command: >-
+  docker exec redis1 redis-cli --cluster create
+  redis1:6379 redis2:6379 redis3:6379 redis4:6379 redis5:6379 redis6:6379
+  --cluster-replicas 1 --cluster-yes
 workload_command: docker exec redis2 redis-cli cluster nodes 2>&1
 stop_commands:
   - docker rm -f redis1 redis2 redis3 redis4 redis5 redis6
