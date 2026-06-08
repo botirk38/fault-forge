@@ -3,9 +3,14 @@
 \label{sec:impl}
 % ===========================================================================
 
-\system{} is implemented in approximately 3,200 lines of Python 3.12, organized
-as a \texttt{uv} package with strict type checking (\texttt{ty check}) and
-formatting enforcement (\texttt{ruff}).
+\system{} is implemented in approximately 2,100 lines of Python 3.12 (core
+library: 1,200 LOC; experiment harness and system specifications: 900 LOC),
+organized as a \texttt{uv} package with strict type checking (\texttt{ty check})
+and formatting enforcement (\texttt{ruff}). The core library comprises seven
+modules: \texttt{minimizer} (greedy search), \texttt{probe} (noise-tolerant
+strategies), \texttt{confidence} (boundary validation), \texttt{oracle}
+(rule-based evaluation), \texttt{baselines} (comparison strategies),
+\texttt{trial} (type definitions), and \texttt{severity} (parsing/construction).
 
 \subsection{Fault Injection}
 \label{sec:injection}

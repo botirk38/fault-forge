@@ -293,6 +293,51 @@ $\forall s' > s: O(s') = \text{reproduced}$. We validate this assumption
 empirically (Section~\ref{sec:monotonicity}) and discuss conditions under which
 it may be violated (Section~\ref{sec:limitations}).
 
+\subsection{Noise-Tolerant Probing}
+\label{sec:probing}
+
+At boundary severities, distributed systems exhibit non-deterministic behavior:
+the same trial may reproduce on one run but not the next due to timing
+variability in leader election, gossip convergence, or thread scheduling. A
+na\"ive binary search that makes one evaluation per midpoint can converge on a
+non-reproducing value due to a single unlucky trial.
+
+\system{} addresses this through a \emph{composable probe strategy} that
+separates noise-handling policy from the search algorithm. The minimizer
+delegates all reproduction decisions to an injected strategy:
+
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{SingleShotProbe}: One evaluation per decision. Fast ($O(1)$
+        overhead) but vulnerable at noisy boundaries. Used when the system is
+        known to be deterministic (\eg{}, consensus systems far from their
+        boundary).
+  \item \textbf{MajorityVoteProbe}: Evaluates $k$ times (default $k=3$) and
+        requires a supermajority ($\geq 66\%$) to declare reproduction. This
+        provides $1 - \binom{k}{\lceil k \cdot p \rceil} p^{\lceil k \cdot p
+        \rceil}$ false-positive resilience where $p$ is the transient
+        reproduction rate below boundary.
+\end{itemize}
+
+The strategy is injected via a protocol interface, so custom strategies
+(\eg{}, adaptive repetition that increases $k$ near boundaries) can be added
+without modifying the minimizer.
+
+\para{Post-convergence boundary validation} After binary search converges at
+severity $hi$ (the lowest value that reproduced), \system{} optionally runs a
+\emph{boundary validator} that dense-probes both $hi$ and $lo$ (the highest
+value that did not reproduce) with $n$ additional trials each. This produces a
+\emph{validated boundary interval}:
+
+\begin{equation}
+\text{BoundaryInterval} = \langle lo, hi, r_{above}, r_{below}, c \rangle
+\end{equation}
+
+\noindent where $r_{above}$ and $r_{below}$ are measured reproduction rates at
+$hi$ and $lo$ respectively, and $c = r_{above} - r_{below}$ is the
+\emph{confidence separation}. A clean boundary shows $r_{above} \approx 1.0$,
+$r_{below} \approx 0.0$, and $c \approx 1.0$. We report confidence separation
+for all converged boundaries in Section~\ref{sec:eval}.
+
 \subsection{Search Strategy Layer}
 \label{sec:search}
 

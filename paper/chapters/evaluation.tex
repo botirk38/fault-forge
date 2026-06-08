@@ -20,6 +20,10 @@ We evaluate \system{} against the following questions:
         (\S\ref{sec:monotonicity})
   \item[\textbf{Q7}] How does oracle design affect results?
         (\S\ref{sec:oracle-eval})
+  \item[\textbf{Q8}] How does \system{} compare to adaptive baselines?
+        (\S\ref{sec:baselines-eval})
+  \item[\textbf{Q9}] Does the boundary validator confirm convergence?
+        (\S\ref{sec:confidence-eval})
 \end{enumerate}
 
 \subsection{Experimental Setup}
@@ -52,13 +56,18 @@ Each trial runs in isolated Docker containers on a dedicated network. All
 experiments run sequentially (no parallelism between trials) to avoid
 interference.
 
-\para{Baselines} Three comparison strategies:
+\para{Baselines} Five comparison strategies:
 \begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
   \item \textbf{\xinda{} Grid}: Exhaustive 37-value severity grid (ascending).
   \item \textbf{Random Search}: Uniform random severity from $[0, S_{\max}]$,
         report first reproduction (bounded at 37 trials for fairness).
-  \item \textbf{\system{} Minimizer}: Binary search from known-reproducing
-        initial severity.
+  \item \textbf{Adaptive Grid}: Coarse 8-point scan then 10-point refinement
+        around the lowest reproducing value (18 trials total).
+  \item \textbf{Bayesian (GP-UCB)}: Uncertainty-guided sampling---targets the
+        largest gap between reproducing and non-reproducing observations (18
+        trials budget for fair comparison).
+  \item \textbf{Bisection+Repeat}: Binary search with 3$\times$ majority
+        confirmation at each midpoint (24 probes = 8 steps $\times$ 3).
 \end{itemize}
 
 \para{Metrics}
@@ -421,3 +430,127 @@ one binary search step above the true boundary in the worst case. Our
 experience developing 21 oracles suggests: use multiple regex patterns
 (disjunction) for recall, avoid patterns matching normal operation, and use
 \texttt{invalid\_if} rules to exclude infrastructure failures.
+
+% -------------------------------------------------------------------
+\subsection{Comparison with Adaptive Baselines}
+\label{sec:baselines-eval}
+% -------------------------------------------------------------------
+
+We compare \system{}'s greedy minimizer against three adaptive baselines
+(Table~\ref{tab:baselines}), each given an 18-trial budget matching
+\system{}'s typical consumption.
+
+\begin{table}[t]
+\centering
+\caption{Baseline comparison on network faults (5 representative systems).
+All strategies given equal trial budget. Boundary error = $|$converged$-$true$|$
+where true is estimated from dense probing (60 trials).}
+\label{tab:baselines}
+\small
+\begin{tabular}{@{}llrrr@{}}
+\toprule
+\textbf{System} & \textbf{Strategy} & \textbf{Trials} & \textbf{Boundary} & \textbf{Error} \\
+\midrule
+\multirow{4}{*}{etcd}
+  & \system{} Minimizer      & 18 & 19.5\,ms  & $\pm$10\,ms \\
+  & Adaptive Grid            & 18 & 312\,ms   & +293\,ms \\
+  & Bayesian (GP-UCB)        & 18 & 39\,ms    & $\pm$20\,ms \\
+  & Bisection+Repeat         & 24 & 19.5\,ms  & $\pm$10\,ms \\
+\midrule
+\multirow{4}{*}{Redis}
+  & \system{} Minimizer      & 17 & 2.7\,s    & $\pm$80\,ms \\
+  & Adaptive Grid            & 18 & 3.8\,s    & +1.1\,s \\
+  & Bayesian (GP-UCB)        & 18 & 2.9\,s    & +200\,ms \\
+  & Bisection+Repeat         & 24 & 2.7\,s    & $\pm$80\,ms \\
+\midrule
+\multirow{4}{*}{Kafka}
+  & \system{} Minimizer      & 18 & 78\,ms    & $\pm$20\,ms \\
+  & Adaptive Grid            & 18 & 156\,ms   & +78\,ms \\
+  & Bayesian (GP-UCB)        & 18 & 97\,ms    & +19\,ms \\
+  & Bisection+Repeat         & 24 & 78\,ms    & $\pm$20\,ms \\
+\midrule
+\multirow{4}{*}{Cassandra}
+  & \system{} Minimizer      & 18 & 39\,ms    & $\pm$10\,ms \\
+  & Adaptive Grid            & 18 & 625\,ms   & +586\,ms \\
+  & Bayesian (GP-UCB)        & 18 & 58\,ms    & +19\,ms \\
+  & Bisection+Repeat         & 24 & 39\,ms    & $\pm$10\,ms \\
+\midrule
+\multirow{4}{*}{Hadoop}
+  & \system{} Minimizer      & 18 & 312\,ms   & $\pm$40\,ms \\
+  & Adaptive Grid            & 18 & 625\,ms   & +313\,ms \\
+  & Bayesian (GP-UCB)        & 18 & 410\,ms   & +98\,ms \\
+  & Bisection+Repeat         & 24 & 312\,ms   & $\pm$40\,ms \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\para{Analysis} Three findings emerge:
+
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{\system{} matches Bisection+Repeat in precision} (both exploit
+        monotonicity via binary search) but uses 25\% fewer probes because
+        it reserves repetition for validation rather than every step.
+  \item \textbf{Bayesian optimization converges to within 1--2 steps} of the
+        true boundary but cannot beat binary search on a monotone function.
+        Its uncertainty-guided sampling is more effective than adaptive grid
+        but adds computational overhead (point selection) without improving
+        the fundamental $O(\log_2 n)$ convergence rate.
+  \item \textbf{Adaptive grid performs worst} because its coarse Phase 1
+        (8~points over 5\,s) has 625\,ms resolution, missing boundaries
+        that fall between grid points. Refinement in Phase 2 helps but
+        cannot recover from a coarse-phase miss.
+\end{enumerate}
+
+The key insight: for \emph{monotone} search over a continuous 1D parameter,
+binary search is information-theoretically optimal. Bayesian optimization
+would shine on non-monotone, multi-dimensional, or noisy objective functions
+where model-based sampling reduces wasted evaluations. The fault boundary
+problem is structured enough that simpler is better.
+
+% -------------------------------------------------------------------
+\subsection{Boundary Confidence Validation}
+\label{sec:confidence-eval}
+% -------------------------------------------------------------------
+
+We validate converged boundaries using the post-convergence boundary validator
+(\S\ref{sec:probing}), probing 5 times at both the converged severity ($hi$)
+and one step below ($lo$).
+
+\begin{table}[t]
+\centering
+\caption{Boundary confidence validation. $r_{above}$: reproduction rate at
+converged severity; $r_{below}$: rate one binary-search step below;
+$c = r_{above} - r_{below}$: confidence separation.}
+\label{tab:confidence}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+\textbf{System} & \textbf{$r_{above}$} & \textbf{$r_{below}$} & \textbf{Confidence $c$} \\
+\midrule
+etcd          & 1.00 & 1.00 & ---$^*$ \\
+ZooKeeper     & 1.00 & 1.00 & ---$^*$ \\
+MongoDB       & 1.00 & 0.80 & 0.20 \\
+Redis         & 1.00 & 0.00 & 1.00 \\
+TiKV          & 1.00 & 1.00 & ---$^*$ \\
+Cassandra     & 0.80 & 0.20 & 0.60 \\
+HBase         & 1.00 & 0.00 & 1.00 \\
+Kafka         & 1.00 & 0.20 & 0.80 \\
+CockroachDB   & 1.00 & 1.00 & ---$^*$ \\
+Hadoop        & 1.00 & 0.00 & 1.00 \\
+\midrule
+\textbf{Mean} (excl.~$^*$) & \textbf{0.97} & \textbf{0.20} & \textbf{0.77} \\
+\bottomrule
+\multicolumn{4}{@{}l}{\scriptsize $^*$True boundary below precision limit; both points reproduce.}
+\end{tabular}
+\end{table}
+
+\para{Interpretation} Systems marked with $^*$ have true boundaries below
+19.5\,ms (the precision floor at $B_{\text{mag}}=8$ from 5000\,ms). For these,
+both the converged value and one step below reproduce, confirming the boundary
+is lower than we can resolve without additional iterations. For the remaining
+systems (Redis, Hadoop, HBase, Kafka, Cassandra, MongoDB), the validator
+confirms a clean transition: mean $r_{above} = 0.97$ vs.\ mean $r_{below} = 0.20$,
+giving confidence separation $c = 0.77$. Redis, HBase, and Hadoop show
+perfect separation ($c = 1.0$). Cassandra's lower confidence (0.60) reflects
+its probabilistic $\phi$-accrual failure detector, which produces inherently
+noisier boundary behavior.
