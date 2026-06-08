@@ -9,6 +9,10 @@ Algorithm: greedy dimensional reduction.
   2. Binary-search minimum severity per remaining fault
   3. Binary-search minimum duration per remaining fault
   4. Binary-search latest start time per remaining fault
+
+Noise-tolerance is handled by the injected ProbeStrategy (see probe.py).
+The minimizer delegates all evaluation decisions to the strategy, keeping
+the binary search logic independent of the noise-handling policy.
 """
 
 from __future__ import annotations
@@ -17,7 +21,9 @@ import copy
 import logging
 from dataclasses import dataclass
 
+from faultforge.confidence import BoundaryInterval, BoundaryValidator
 from faultforge.oracle import Oracle, OracleResult
+from faultforge.probe import ProbeStrategy, SingleShotProbe
 from faultforge.runner import RunTrial
 from faultforge.severity import build_severity, parse_severity_magnitude
 from faultforge.trial import SlowFault, Trial, fault_info
@@ -34,6 +40,8 @@ class MinimizationConfig:
     magnitude_steps: int = 8
     duration_steps: int = 5
     timing_steps: int = 5
+    validate_boundary: bool = True
+    validation_probes: int = 5
 
 
 @dataclass(frozen=True)
@@ -56,6 +64,7 @@ class MinimizationResult:
     iterations_used: int
     reductions: tuple[ReductionStep, ...] = ()
     final_score: float = 0.0
+    boundary_intervals: tuple[BoundaryInterval, ...] = ()
 
 
 class Minimizer:
@@ -64,6 +73,10 @@ class Minimizer:
     Takes a reproducing Trial and reduces fault parameters (count,
     magnitude, duration, timing) to find the smallest recipe that
     still triggers the oracle symptom.
+
+    Evaluation decisions are delegated to the injected ProbeStrategy,
+    which controls noise-handling policy (single-shot, majority-vote,
+    etc.) independently of the search algorithm.
     """
 
     def __init__(
@@ -71,10 +84,14 @@ class Minimizer:
         runner: RunTrial,
         oracle: Oracle,
         config: MinimizationConfig | None = None,
+        probe: ProbeStrategy | None = None,
     ) -> None:
         self._runner = runner
         self._oracle = oracle
         self._config = config or MinimizationConfig()
+        self._probe = probe or SingleShotProbe(
+            runner, oracle, threshold=self._config.score_threshold
+        )
 
     def minimize(self, trial: Trial) -> MinimizationResult:
         """Run the full minimization pipeline on a reproducing trial."""
@@ -98,11 +115,15 @@ class Minimizer:
         trial, count_steps = self._reduce_fault_count(trial, budget)
         reductions.extend(count_steps)
 
+        magnitude_bounds: list[tuple[int, float, float]] = []
+
         for fault_idx in range(len(trial["faults"])):
             if budget.exhausted:
                 break
-            trial, steps = self._reduce_magnitude(trial, fault_idx, budget)
+            trial, steps, bounds = self._reduce_magnitude(trial, fault_idx, budget)
             reductions.extend(steps)
+            if bounds is not None:
+                magnitude_bounds.append((fault_idx, bounds[0], bounds[1]))
 
             if budget.exhausted:
                 break
@@ -114,6 +135,9 @@ class Minimizer:
             trial, steps = self._reduce_timing(trial, fault_idx, budget)
             reductions.extend(steps)
 
+        # Validate boundary confidence if configured and budget allows
+        intervals = self._validate_boundaries(trial, magnitude_bounds, budget)
+
         final_result = self._evaluate(trial, budget)
 
         return MinimizationResult(
@@ -122,7 +146,37 @@ class Minimizer:
             iterations_used=budget.used,
             reductions=tuple(reductions),
             final_score=final_result.score,
+            boundary_intervals=tuple(intervals),
         )
+
+    def _validate_boundaries(
+        self,
+        trial: Trial,
+        bounds: list[tuple[int, float, float]],
+        budget: _Budget,
+    ) -> list[BoundaryInterval]:
+        """Run boundary validation for converged magnitude dimensions."""
+        if not self._config.validate_boundary or not bounds:
+            return []
+
+        min_budget_per_validation = self._config.validation_probes * 2
+        intervals: list[BoundaryInterval] = []
+
+        for fault_idx, lo, hi in bounds:
+            if budget.remaining < min_budget_per_validation:
+                break
+            validator = BoundaryValidator(
+                self._probe, validation_probes=self._config.validation_probes
+            )
+            interval = validator.validate(trial, fault_idx, lo, hi)
+            intervals.append(interval)
+            # Account for probes consumed by the validator
+            probes_used = self._config.validation_probes * 2
+            for _ in range(probes_used):
+                if not budget.exhausted:
+                    budget.spend()
+
+        return intervals
 
     # ------------------------------------------------------------------
     # Reduction phases
@@ -167,14 +221,19 @@ class Minimizer:
 
     def _reduce_magnitude(
         self, trial: Trial, fault_idx: int, budget: _Budget
-    ) -> tuple[Trial, list[ReductionStep]]:
-        """Binary search for minimum severity on a single fault."""
+    ) -> tuple[Trial, list[ReductionStep], tuple[float, float] | None]:
+        """Binary search for minimum severity on a single fault.
+
+        Returns (trial, reductions, bounds) where bounds is (lo, hi) --
+        the final binary search interval for boundary validation.
+        Returns None for bounds if the fault type is not reducible.
+        """
         fault = trial["faults"][fault_idx]
         original_severity = fault["severity"]
 
         current_ms = parse_severity_magnitude(fault["fault_type"], fault["severity"])
         if current_ms is None:
-            return trial, []
+            return trial, [], None
 
         lo = 0.0
         hi = current_ms
@@ -192,11 +251,12 @@ class Minimizer:
             new_severity = build_severity(fault["fault_type"], mid)
             candidate = self._with_severity(trial, fault_idx, new_severity)
 
-            result = self._evaluate(candidate, budget)
-            if self._is_reproduced(result):
+            probe_result = self._probe.probe(candidate)
+            budget.spend()
+            if probe_result.reproduced:
                 hi = mid
                 best_severity = new_severity
-                best_score = result.score
+                best_score = 1.0
             else:
                 lo = mid
 
@@ -213,7 +273,7 @@ class Minimizer:
                 )
             )
 
-        return trial, reductions
+        return trial, reductions, (lo, hi)
 
     def _reduce_duration(
         self, trial: Trial, fault_idx: int, budget: _Budget

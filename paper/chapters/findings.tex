@@ -1,95 +1,136 @@
 % ===========================================================================
-\section{Key Findings}
+\section{Empirical Insights}
 \label{sec:findings}
 % ===========================================================================
 
-Our evaluation reveals cross-cutting patterns with implications for distributed
-system design, deployment, and monitoring.
+Our evaluation reveals five key insights about slow-fault vulnerability in
+production distributed systems. These findings have immediate implications
+for system design, monitoring, and testing practice.
 
-\subsection{Finding 1: Timeout Architecture Determines Resilience}
+\subsection{Timeout Architecture Determines Resilience}
+\label{sec:finding-timeouts}
 
-The 138$\times$ difference between Redis Cluster's danger zone (2.7\,s) and
-consensus-based systems ($\leq$19.5\,ms) traces to a fundamental architectural
-choice in failure detection:
+The converged boundaries cluster into four distinct tiers that map directly
+to each system's failure detection mechanism:
 
-\begin{table}[t]
-\centering
-\caption{Failure detection architectures and their danger-zone implications.}
-\label{tab:architectures}
-\small
-\begin{tabular}{@{}lll@{}}
-\toprule
-\textbf{Architecture} & \textbf{Boundary} & \textbf{Systems} \\
-\midrule
-Heartbeat-sensitive & $\leq$19.5\,ms & etcd, ZK, MongoDB, \\
-consensus & & TiKV, CockroachDB \\
-\midrule
-$\phi$-accrual & 39\,ms & Cassandra \\
-detector & & \\
-\midrule
-ZK-coordinated & 39--313\,ms & HBase, Hadoop, \\
-session timeout & & Kafka \\
-\midrule
-Explicit timeout & 2.7\,s & Redis Cluster \\
-with gossip & & \\
-\bottomrule
-\end{tabular}
-\end{table}
+\begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{Raft heartbeat systems ($\leq$19.5\,ms).} etcd, ZooKeeper,
+        MongoDB, TiKV, CockroachDB. These systems use aggressive heartbeat
+        intervals (default 100--500\,ms) with election timeouts at
+        1--10$\times$ the heartbeat. A network delay of 19.5\,ms is
+        sufficient to push RTT beyond the heartbeat interval, triggering
+        leader re-election. The election itself involves message
+        round-trips that are \emph{also} subject to the injected delay,
+        creating a cascade.
+  \item \textbf{$\phi$-accrual/gossip systems (39\,ms).} Cassandra, HBase.
+        These use adaptive failure detectors ($\phi$-accrual for Cassandra,
+        ZooKeeper sessions for HBase) with longer baseline windows. The
+        detector's suspicion level rises more gradually, requiring
+        2$\times$ the perturbation to trigger.
+  \item \textbf{KRaft/controlled election (78\,ms).} Kafka's KRaft protocol
+        uses controlled shutdown with explicit leadership transfer,
+        tolerating 4$\times$ more delay than raw Raft before the
+        controller marks a broker as fenced.
+  \item \textbf{Explicit timeout systems ($>$300\,ms).} Redis
+        (\texttt{cluster-node-timeout}/2 = 2.5\,s for PFAIL) and Hadoop
+        (NameNode heartbeat timeout). These deliberately trade detection
+        latency for jitter tolerance---a conscious design choice.
+\end{enumerate}
 
-Heartbeat-sensitive consensus (Raft, ZAB, Multi-Raft) ties liveness
-detection directly to the heartbeat mechanism, providing fast failover
-($<$10\,s) but creating extreme sensitivity to latency perturbation.
-The $\phi$-accrual detector (Cassandra) uses statistical modeling of
-inter-arrival times, providing moderate jitter tolerance. ZK-coordinated
-sessions (HBase, Hadoop, Kafka) delegate detection to ZooKeeper session
-timeouts. Redis uses configurable \texttt{cluster-node-timeout} (default
-5\,s) requiring \emph{sustained} unreachability, deliberately trading
-detection speed for jitter tolerance.
+\para{Architectural implication} The 130$\times$ spread between the most
+sensitive tier (19.5\,ms) and the most tolerant (2.7\,s) is a direct
+consequence of timeout configuration, not implementation quality. Systems
+in Tier~1 could move to Tier~4 resilience by adopting configurable election
+timeouts---as etcd partially does with \texttt{heartbeat-interval} and
+\texttt{election-timeout}---but operators rarely change defaults.
 
-This taxonomy suggests a design trade-off: $\text{Detection Latency} \propto
-\text{Jitter Tolerance}$. \system{}'s minimal recipes quantify this
-trade-off precisely, enabling informed decisions about timeout configuration.
+\subsection{Fault Type Sensitivity Varies 4--16$\times$}
+\label{sec:finding-sensitivity}
 
-\subsection{Finding 2: Fault Type Sensitivity Varies by Orders of Magnitude}
+Within a single system, vulnerability boundaries vary dramatically across
+fault types. For etcd: network (19.5\,ms), filesystem (78\,ms), CPU (0.20
+cores), memory (192\,MB). The 4$\times$ gap between network and filesystem
+reflects that Raft consensus messages transit the network \emph{before}
+touching disk, so network delay disrupts the critical path earlier.
 
-Across all systems, filesystem fault boundaries are 4--16$\times$ higher than
-network fault boundaries. Network heartbeats have sub-second timeouts, while
-I/O operations are expected to have variable latency and systems configure
-generous timeouts accordingly. HBase is the exception (only 2$\times$ ratio)
-because its WAL writes are in the critical path of RPC handling, directly
-delaying responses that maintain ZooKeeper sessions. CPU and memory
-boundaries follow system architecture: Golang-based systems
-(etcd, TiKV, CockroachDB) show slightly more CPU sensitivity due to goroutine
-scheduling, while JVM-based systems require more memory headroom for
-heap and GC.
+For Cassandra, the gap is 8$\times$ (39\,ms network vs.\ 312\,ms filesystem)
+because gossip protocol messages are small and frequent (network-sensitive)
+while memtable flushes and compaction tolerate I/O stalls (filesystem-tolerant).
 
-\subsection{Finding 3: Single-Fault Testing Is Optimistic}
+\para{Testing implication} Single-fault-type testing (e.g., network-only)
+captures only one dimension of a system's vulnerability surface. A complete
+characterization requires all fault types, but given limited budget, network
+faults provide the tightest bounds for consensus systems.
 
-Multi-fault combinations lower individual boundaries by mean 31.4\%
-(range 22--50\%, Section~\ref{sec:multi-fault-eval}). This has a direct CI
-implication: regression tests based on single-fault boundaries may provide
-false confidence. We recommend testing at 70\% of the single-fault boundary:
-\begin{equation}
-\text{CI threshold} = 0.7 \times \text{single-fault boundary}
-\end{equation}
+\subsection{Single-Fault Testing Is Optimistic}
+\label{sec:finding-multi}
 
-\subsection{Finding 4: The Minimizer Is CI-Practical}
+Multi-fault combinations reduce individual boundaries by 22--50\% (mean 31.4\%,
+Table~\ref{tab:multi-fault}). The compound effect is strongest when faults
+target \emph{orthogonal resources} consumed by the same critical path:
 
-\system{}'s 17--18 iterations per configuration require 7--14 minutes per
-system (including full cluster lifecycle). Total wall time for all 10 systems
-under one fault type: 99 minutes. All five fault types across 10 systems:
-$\sim$8 hours. A nightly CI job produces up-to-date fault specifications in
-under one shift. Weekly runs track boundary drift across versions,
-configuration changes, and infrastructure updates.
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{nw + fs (38\% reduction, etcd):} Raft heartbeat delayed on
+        network \emph{and} WAL sync delayed on disk. The leader cannot
+        commit entries (blocked on disk) while followers are timing out
+        (blocked on network).
+  \item \textbf{nw + nw on 2 nodes (38\% reduction, Cassandra):} Gossip
+        protocol loses majority of its information sources simultaneously,
+        causing the $\phi$-accrual detector to spike faster than with a
+        single slow node.
+  \item \textbf{nw + fs (50\% reduction, HBase):} RegionServer cannot flush
+        WAL (fs) while its ZooKeeper session heartbeat is delayed (nw),
+        causing session expiry before the flush completes.
+\end{itemize}
 
-\subsection{Finding 5: Monitoring Must Operate at ms Granularity}
+\para{Implication for production} Real cloud environments experience
+correlated degradation (e.g., noisy-neighbor CPU throttling + shared-network
+congestion). Single-fault danger zones are the \emph{best case}; actual
+safety margins should assume at least 30\% tighter boundaries.
 
-The sub-20\,ms danger zones for consensus systems are 250$\times$ below
-typical production alerting thresholds. Industry platforms document default
-alert configurations of 1--5\,s for network latency
-anomalies~\cite{datadog-monitoring,pagerduty-best-practices,google-sre-book}.
-This gap means slow faults in the 20\,ms--5\,s range will trigger catastrophic
-leader elections without generating any alert. We recommend P99 latency
-tracking at 10\,ms resolution for consensus-bearing links, with separate
-monitoring tiers for consensus links (10\,ms SLO) vs.\ data links (100\,ms
-SLO).
+\subsection{Minimization Is CI-Practical}
+\label{sec:finding-ci}
+
+\system{} characterizes a single system in 7--14 minutes wall-clock time
+(17--18 iterations $\times$ 25--45\,s per trial including full Docker cluster
+lifecycle). The entire 10-system $\times$ 5-fault-type matrix completes in
+$\sim$8 hours on a single server---well within nightly CI budgets.
+
+\para{Regression testing} Boundaries are stable (CV$<$5\%), so a 1-step
+increase between releases (e.g., etcd boundary drops from 19.5\,ms to 9.8\,ms
+after increasing election timeout) constitutes a meaningful signal. We
+propose a CI assertion:
+
+\begin{lstlisting}[language=bash,basicstyle=\ttfamily\small]
+faultforge minimize --system etcd:v3.6 \
+  --assert-boundary-above 15ms \
+  --fault nw --oracle etcd-raft.yaml
+# Exit 1 if boundary < 15ms (regression)
+\end{lstlisting}
+
+\subsection{Monitoring Must Operate at ms Granularity}
+\label{sec:finding-monitoring}
+
+The 250$\times$ gap between consensus boundaries (19.5\,ms) and production
+alerting thresholds (1--5\,s) represents a \emph{monitoring blind spot}. Any
+network perturbation between 20\,ms and 1\,s is simultaneously dangerous
+(above the failure boundary) and invisible (below the alerting threshold).
+
+This finding has concrete implications:
+\begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
+  \item \textbf{Network monitoring} must report P99 latency at sub-100\,ms
+        resolution, not 1\,s buckets.
+  \item \textbf{Failure detectors} should expose their internal thresholds
+        (heartbeat interval, election timeout) as metrics, alerting when
+        observed latency approaches these thresholds.
+  \item \textbf{Adaptive failure detection} (e.g., $\phi$-accrual) provides
+        inherent defense but is not used by the most popular systems (etcd,
+        ZooKeeper).
+\end{itemize}
+
+\para{Broader context} This finding connects to the \emph{metastable failure}
+pattern~\cite{bronson-metastable}: a system operating in a vulnerable state
+(network latency near 19.5\,ms) can be tipped into cascading failure by a
+minor additional perturbation. The gap between danger zone and monitoring
+threshold is the \emph{metastability window}---the range of severities where
+the system is vulnerable but no alert fires.

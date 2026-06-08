@@ -123,6 +123,28 @@ severity that triggers oracle-detectable symptoms. This may differ from the
 minimal severity that triggers \emph{user-visible} impact (which may be higher
 due to client-side retries, load balancer failover, etc.).
 
+\subsection{Toward Production Deployment}
+\label{sec:production}
+
+\system{}'s Docker-based evaluation targets development and CI environments.
+Extending to production requires three adaptations:
+
+\para{Kubernetes fault injection} The \texttt{RunTrial} protocol abstracts
+execution infrastructure. A \texttt{K8sRunner} would replace
+\texttt{nsenter + tc netem} with Kubernetes-native mechanisms: network
+policies with Istio fault injection, or eBPF-based packet delay via
+\texttt{tc-bpf} without requiring privileged access to node namespaces.
+
+\para{eBPF-based precision injection} For production clusters where
+\texttt{tc netem} is unavailable, eBPF programs attached to \texttt{cgroup/skb}
+can delay packets with nanosecond precision. This eliminates the
+\texttt{nsenter} requirement and works within unprivileged container boundaries.
+
+\para{Observability integration} Production boundary checks can integrate with
+existing observability stacks: oracle rules matching Prometheus alerting
+expressions rather than log patterns, and boundary validation triggered by
+deployment pipelines rather than cron schedules.
+
 \subsection{Data Availability}
 
 \system{} is released as open source. All oracle specifications, system

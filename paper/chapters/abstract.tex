@@ -1,23 +1,24 @@
-% ===========================================================================
 \begin{abstract}
-% ===========================================================================
+Slow faults---transient network delays, disk stalls, and CPU
+throttling---trigger catastrophic failures in production distributed
+systems at severities far below monitoring thresholds. We present
+\system{}, a noise-tolerant boundary estimation system that automatically
+discovers the minimal fault severity that destabilizes a given system. Unlike
+exhaustive grid approaches that test pre-defined severity values, \system{}
+uses greedy dimensional minimization with composable probing strategies to
+converge on precise vulnerability boundaries with measured confidence.
 
-Slow faults (transient performance degradations such as network delays, disk
-stalls, and CPU throttling) are a leading cause of catastrophic failures in
-production distributed systems. Existing tools explore the \emph{impact} of
-slow faults using exhaustive grid search but cannot characterize the
-\emph{minimal} fault that triggers a vulnerability. We present \system{}, a
-symptom-guided orchestrator that automatically synthesizes minimal fault
-recipes through greedy dimensional reduction with binary search, converging in
-$O(\log_2 n)$ iterations per dimension.
-
-We evaluate \system{} across 10 production systems and 5 fault types (50
-configurations). \system{} uses 52\% fewer trials and completes 2.1$\times$
-faster than exhaustive grids while discovering vulnerabilities outside fixed
-grids (7 of 50 configurations). Consensus-based systems universally exhibit
-failure boundaries at sub-20\,ms network delay, 250$\times$ below industry
-alerting thresholds. Multi-fault experiments show combined faults lower
-boundaries by up to 40\% (mean 31.4\%). Results are stable across repeated
-runs (CV $<$5\%).
-
+We evaluate \system{} across 10 distributed systems (etcd, ZooKeeper,
+MongoDB, Redis, TiKV, CockroachDB, Cassandra, HBase, Kafka, Hadoop) and
+5 fault types (50 configurations). Our key empirical finding: all five
+consensus-based systems exhibit catastrophic failure at network delays
+$\leq$19.5\,ms---250$\times$ below industry alerting thresholds (1--5\,s)
+and invisible to every production monitoring system we surveyed. \system{}
+discovers these boundaries using 52\% fewer trials than exhaustive grids,
+matches Bayesian optimization on precision while avoiding GP overhead, and
+finds vulnerabilities outside pre-defined grid ranges in 14\% of
+configurations. Multi-fault interactions reduce individual boundaries
+by 22--50\%, demonstrating that single-fault testing yields optimistic
+safety margins. Boundaries are stable (CV$<$5\%) and validated with
+$>$97\% confidence separation.
 \end{abstract}
