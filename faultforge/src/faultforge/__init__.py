@@ -2,6 +2,7 @@
 
 __version__ = "0.1.0"
 
+from faultforge.confidence import BoundaryInterval, BoundaryValidator
 from faultforge.minimizer import (
     MinimizationConfig,
     MinimizationResult,
@@ -9,6 +10,7 @@ from faultforge.minimizer import (
     ReductionStep,
 )
 from faultforge.oracle import Oracle, OracleConfig, OracleResult
+from faultforge.probe import MajorityVoteProbe, ProbeResult, ProbeStrategy, SingleShotProbe
 from faultforge.runner import RunTrial
 from faultforge.search import SearchConfig, Searcher
 from faultforge.severity import build_severity, parse_severity_magnitude
@@ -33,17 +35,23 @@ from faultforge.trial import (
 
 __all__ = [
     "BenchmarkConfig",
+    "BoundaryInterval",
+    "BoundaryValidator",
+    "MajorityVoteProbe",
     "MinimizationConfig",
     "MinimizationResult",
     "Minimizer",
     "Oracle",
     "OracleConfig",
     "OracleResult",
+    "ProbeResult",
+    "ProbeStrategy",
     "ReductionStep",
     "ResourceLimit",
     "RunTrial",
     "SearchConfig",
     "Searcher",
+    "SingleShotProbe",
     "SlowFault",
     "SlowFaultKind",
     "SystemConfig",
