@@ -206,9 +206,7 @@ class BayesianBoundarySearch:
             history=tuple(history),
         )
 
-    def _select_next(
-        self, observations: list[_Observation], max_severity: float
-    ) -> float | None:
+    def _select_next(self, observations: list[_Observation], max_severity: float) -> float | None:
         """Select next probe point: midpoint of largest boundary-crossing gap."""
         sorted_obs = sorted(observations, key=lambda o: o.severity)
 
@@ -322,9 +320,7 @@ class BisectionWithRepetition:
 # ---------------------------------------------------------------------------
 
 
-def _with_severity_val(
-    trial: Trial, fault_idx: int, fault: SlowFault, value: float
-) -> Trial:
+def _with_severity_val(trial: Trial, fault_idx: int, fault: SlowFault, value: float) -> Trial:
     """Return trial copy with one fault's severity set to a numeric value."""
     severity_str = build_severity(fault["fault_type"], value)
     new_faults: list[SlowFault] = [
