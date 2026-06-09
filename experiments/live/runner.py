@@ -35,8 +35,8 @@ class LiveRunner:
             self._start_cluster(spec)
             self._inject_faults(trial, spec)
             time.sleep(spec.post_inject_wait_s)
-            self._run_workload(spec)
-            log_path = self._collect_logs(spec, trial)
+            workload_result = self._run_workload(spec)
+            log_path = self._collect_logs(spec, trial, workload_result)
 
             return {
                 "success": True,
@@ -106,11 +106,17 @@ class LiveRunner:
     def _resolve_target(self, location: str, spec: SystemSpec) -> str:
         return spec.node_map.get(location, location)
 
-    def _run_workload(self, spec: SystemSpec) -> None:
+    def _run_workload(self, spec: SystemSpec) -> subprocess.CompletedProcess[str] | None:
         if spec.workload_command:
-            _sh(spec.workload_command, timeout=60)
+            return _sh(spec.workload_command, timeout=60)
+        return None
 
-    def _collect_logs(self, spec: SystemSpec, trial: Trial) -> str:
+    def _collect_logs(
+        self,
+        spec: SystemSpec,
+        trial: Trial,
+        workload_result: subprocess.CompletedProcess[str] | None = None,
+    ) -> str:
         if self._log_dir:
             log_dir = Path(self._log_dir)
             log_dir.mkdir(parents=True, exist_ok=True)
@@ -125,6 +131,10 @@ class LiveRunner:
                 result = _sh(f"docker logs {container} 2>&1")
                 f.write(f"=== {container} ===\n")
                 f.write(result.stdout)
+                f.write("\n")
+            if workload_result:
+                f.write("=== workload ===\n")
+                f.write(workload_result.stdout)
                 f.write("\n")
 
         return str(log_file)

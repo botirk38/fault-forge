@@ -20,135 +20,52 @@ wider jitter tolerance with comparable detection latency.
 \subsection{CI Integration}
 \label{sec:ci-integration}
 
-\system{}'s minimal recipes translate directly to CI regression tests:
-
-\begin{lstlisting}[language={},caption={CI configuration using \system{} recipe.},label={lst:ci}]
-# .github/workflows/resilience.yml
-name: Resilience Boundary Check
-on:
-  schedule:
-    - cron: '0 2 * * 1'  # Weekly Monday 2AM
-  pull_request:
-    paths: ['src/raft/**']  # On consensus changes
-
-jobs:
-  check-boundaries:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-      - name: Verify etcd election boundary
-        run: |
-          faultforge minimize \
-            --oracle oracles/etcd-election.yaml \
-            --system specs/etcd.yaml \
-            --initial-severity slow-5s \
-            --assert-boundary-above 15ms
-\end{lstlisting}
-
-The \texttt{--assert-boundary-above} flag causes the CI job to \emph{fail}
-if the converged boundary drops below the specified threshold, enabling
-regression detection, configuration validation, and version comparison.
+Minimal recipes translate directly to CI regression tests via
+\texttt{faultforge minimize --assert-boundary-above 15ms}. A weekly cron job
+or pull-request trigger on consensus-related paths provides continuous
+boundary monitoring. The job fails if the converged boundary drops below the
+asserted threshold, enabling regression detection across versions.
 
 \subsection{Boundary Interpretation}
 \label{sec:interpretation}
 
-The converged severity from binary search is an \emph{upper bound} on the
-true danger zone boundary, not the exact boundary itself.
-
-\para{For highly sensitive systems} (etcd, ZooKeeper, MongoDB, TiKV,
-CockroachDB): The true boundary is \emph{below} 19.5\,ms (confirmed by
-\xinda{}'s grid showing reproduction at 100\,$\mu$s). Our 19.5\,ms result
-means: ``with 8 binary search steps from 5000\,ms, we cannot distinguish
-the boundary from zero; it is below our precision limit.'' Increasing
-$B_{\text{mag}}$ to 16 would resolve to 0.076\,ms (76\,$\mu$s), consistent
-with \xinda{}'s findings.
-
-\para{For systems near the precision limit} (Cassandra, HBase, Kafka,
-Hadoop): The converged value approximates the true boundary within
-$\pm S_{\max}/2^{B_{\text{mag}}}$. Redis (2.7\,s from 10\,s range,
-precision 39\,ms) provides a tight bound.
-
-\para{Practical significance} For operational purposes, the precision limit
-(19.5\,ms) is sufficient to conclude ``this system is vulnerable to
-negligible network perturbation.'' The exact boundary (whether 5\,$\mu$s or
-50\,$\mu$s) does not change the operational response: both are below
-any reasonable monitoring or alerting threshold.
+The converged severity is an \emph{upper bound} on the true boundary.
+For highly sensitive systems (etcd, ZK, MongoDB, TiKV), 19.5\,ms is the
+precision floor ($5000/2^8$); \xinda{}'s grid confirms reproduction at
+100\,$\mu$s. For operational purposes, the distinction is immaterial:
+both values are below any reasonable monitoring threshold.
 
 \subsection{Limitations}
 \label{sec:limitations}
 
-\para{Single-node injection} Our evaluation primarily targets single-node
-fault injection. Production environments may have correlated multi-node
-degradations (rack-level network issues, storage array slowdowns).
-Our multi-fault experiments (Section~\ref{sec:multi-fault-eval}) partially
-address this, but full correlated-failure modeling remains future work.
-
-\para{Containerized deployment} All systems run in Docker containers on a
-single host. This eliminates real network hardware effects (switch buffers,
-NIC queuing) and may under-represent multi-host timing variations. However,
-container deployment is the standard for development testing and CI, which is
-our primary target use case.
-
-\para{Workload sensitivity} We use standard benchmarks (YCSB where applicable,
-system-specific otherwise). Production workloads may have different access
-patterns, sizes, and concurrency levels that shift fault boundaries.
-
-\para{Monotonicity violations} While we validate monotonicity empirically
-(Section~\ref{sec:monotonicity}), pathological workloads could violate it.
-Example: a system with timeout-based retries might \emph{succeed} at very high
-delay (because the retry timer has ample time to fire) but \emph{fail} at
-moderate delay. We did not observe this in our evaluation but acknowledge it as
-a theoretical limitation.
-
-\para{Oracle sensitivity} Our results depend on oracle quality. The oracle
-evaluation (Section~\ref{sec:oracle-eval}) quantifies this risk: 97\% recall
-means approximately 3\% of actual failures go undetected.
+\para{Single-node injection} Production may have correlated multi-node
+degradations; our multi-fault experiments partially address this.
+\para{Containerized deployment} Docker eliminates real network hardware
+effects; however, containers are the standard CI/development target.
+\para{Workload sensitivity} Production workloads may shift boundaries.
+\para{Monotonicity} Pathological workloads with timeout-based retries could
+violate monotonicity; not observed in our evaluation.
 
 \subsection{Threats to Validity}
 \label{sec:threats}
 
-\para{Internal validity} Non-determinism in distributed systems means
-trial outcomes at boundary severities may vary. We mitigate this with:
-(a)~repeated runs showing $<$5\% CV (Section~\ref{sec:stability}),
-(b)~dense monotonicity probes (Section~\ref{sec:monotonicity}), and
-(c)~the minimizer's conservative approach (using $hi$ as the converged
-value, which always reproduces).
-
-\para{External validity} Our 10 systems span multiple architectures (Raft,
-ZAB, gossip, $\phi$-accrual, coordinated sessions) and languages (Go, Java,
-C, Rust), but may not represent all production systems.
-
-\para{Construct validity} We define ``danger zone boundary'' as the minimal
-severity that triggers oracle-detectable symptoms. This may differ from the
-minimal severity that triggers \emph{user-visible} impact (which may be higher
-due to client-side retries, load balancer failover, etc.).
+\para{Internal} Non-determinism mitigated by repeated runs ($<$5\% CV)
+and dense monotonicity probes ($>$97\% fidelity).
+\para{External} Ten systems span Raft, ZAB, gossip, $\phi$-accrual, and
+KRaft architectures in Go, Java, C, and Rust. \para{Construct} ``Boundary''
+= minimal severity triggering oracle-detectable symptoms; user-visible
+impact may require higher severity due to client retries.
 
 \subsection{Toward Production Deployment}
 \label{sec:production}
 
-\system{}'s Docker-based evaluation targets development and CI environments.
-Extending to production requires three adaptations:
-
-\para{Kubernetes fault injection} The \texttt{RunTrial} protocol abstracts
-execution infrastructure. A \texttt{K8sRunner} would replace
-\texttt{nsenter + tc netem} with Kubernetes-native mechanisms: network
-policies with Istio fault injection, or eBPF-based packet delay via
-\texttt{tc-bpf} without requiring privileged access to node namespaces.
-
-\para{eBPF-based precision injection} For production clusters where
-\texttt{tc netem} is unavailable, eBPF programs attached to \texttt{cgroup/skb}
-can delay packets with nanosecond precision. This eliminates the
-\texttt{nsenter} requirement and works within unprivileged container boundaries.
-
-\para{Observability integration} Production boundary checks can integrate with
-existing observability stacks: oracle rules matching Prometheus alerting
-expressions rather than log patterns, and boundary validation triggered by
-deployment pipelines rather than cron schedules.
+The \texttt{RunTrial} protocol abstracts infrastructure: a
+\texttt{K8sRunner} can replace \texttt{nsenter + tc netem} with Istio
+fault injection or eBPF-based delay (\texttt{tc-bpf}). Oracle rules can
+match Prometheus alerting expressions rather than log patterns.
 
 \subsection{Data Availability}
 
-\system{} is released as open source. All oracle specifications, system
-configurations, and experiment scripts are included in the repository.
-Raw trial logs and converged boundaries for all 50 system--fault
-configurations are available in \texttt{experiments/RESULTS.md}. We
-encourage artifact evaluation and independent reproduction.
+\system{} is open source. Oracle specifications, system configurations,
+experiment scripts, and raw trial logs for all 50 system--fault
+configurations are available in \texttt{experiments/RESULTS.md}.

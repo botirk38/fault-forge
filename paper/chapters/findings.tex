@@ -15,7 +15,7 @@ to each system's failure detection mechanism:
 
 \begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
   \item \textbf{Raft heartbeat systems ($\leq$19.5\,ms).} etcd, ZooKeeper,
-        MongoDB, TiKV, CockroachDB. These systems use aggressive heartbeat
+        MongoDB, TiKV. These systems use aggressive heartbeat
         intervals (default 100--500\,ms) with election timeouts at
         1--10$\times$ the heartbeat. A network delay of 19.5\,ms is
         sufficient to push RTT beyond the heartbeat interval, triggering
@@ -31,8 +31,9 @@ to each system's failure detection mechanism:
         uses controlled shutdown with explicit leadership transfer,
         tolerating 4$\times$ more delay than raw Raft before the
         controller marks a broker as fenced.
-  \item \textbf{Explicit timeout systems ($>$300\,ms).} Redis
-        (\texttt{cluster-node-timeout}/2 = 2.5\,s for PFAIL) and Hadoop
+  \item \textbf{Explicit timeout systems ($>$300\,ms).} CockroachDB
+        (node liveness heartbeat at 1\,s, boundary at 1.5\,s), Redis
+        (\texttt{cluster-node-timeout}/2 = 2.5\,s for PFAIL), and Hadoop
         (NameNode heartbeat timeout). These deliberately trade detection
         latency for jitter tolerance---a conscious design choice.
 \end{enumerate}

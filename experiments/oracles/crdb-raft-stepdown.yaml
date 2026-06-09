@@ -19,3 +19,5 @@ reproduced_if:
       regex: "lease transfer failed"
     - file: compose
       regex: "range.*unavailable"
+    - file: compose
+      regex: "crdb\\d.*false.*false"

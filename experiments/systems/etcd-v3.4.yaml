@@ -1,0 +1,48 @@
+name: etcd-v3.4
+image: quay.io/coreos/etcd:v3.4.27
+cluster_size: 3
+startup_wait_s: 8
+post_inject_wait_s: 12
+node_map:
+  node1: etcd1
+  node2: etcd2
+  node3: etcd3
+  leader: etcd1
+  follower: etcd2
+start_commands:
+  - >-
+    docker run -d --name etcd1 --net {network}
+    -e ETCD_NAME=etcd1
+    -e ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd1:2380
+    -e ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+    -e ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd1:2379
+    -e ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+    -e ETCD_INITIAL_CLUSTER_STATE=new
+    {image}
+  - >-
+    docker run -d --name etcd2 --net {network}
+    -e ETCD_NAME=etcd2
+    -e ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd2:2380
+    -e ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+    -e ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd2:2379
+    -e ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+    -e ETCD_INITIAL_CLUSTER_STATE=new
+    {image}
+  - >-
+    docker run -d --name etcd3 --net {network}
+    -e ETCD_NAME=etcd3
+    -e ETCD_INITIAL_ADVERTISE_PEER_URLS=http://etcd3:2380
+    -e ETCD_LISTEN_PEER_URLS=http://0.0.0.0:2380
+    -e ETCD_LISTEN_CLIENT_URLS=http://0.0.0.0:2379
+    -e ETCD_ADVERTISE_CLIENT_URLS=http://etcd3:2379
+    -e ETCD_INITIAL_CLUSTER=etcd1=http://etcd1:2380,etcd2=http://etcd2:2380,etcd3=http://etcd3:2380
+    -e ETCD_INITIAL_CLUSTER_STATE=new
+    {image}
+workload_command: >-
+  docker exec etcd1 etcdctl put /bench/key value 2>&1;
+  docker exec etcd1 etcdctl endpoint status --cluster -w table 2>&1
+stop_commands:
+  - docker rm -f etcd1 etcd2 etcd3
+  - docker network rm {network}

@@ -1,0 +1,34 @@
+name: hadoop
+image: apache/hadoop:3.3.6
+cluster_size: 3
+startup_wait_s: 25
+post_inject_wait_s: 20
+node_map:
+  node1: hadoop-nn
+  node2: hadoop-dn1
+  node3: hadoop-dn2
+  leader: hadoop-nn
+  namenode: hadoop-nn
+  datanode: hadoop-dn1
+start_commands:
+  - >-
+    docker run -d --name hadoop-nn --net {network}
+    -e HADOOP_CONF_dfs_namenode_name_dir=/data/namenode
+    -e CLUSTER_NAME=test
+    {image} hdfs namenode -format -nonInteractive 2>/dev/null;
+    docker start hadoop-nn 2>/dev/null ||
+    docker run -d --name hadoop-nn --net {network}
+    -e CLUSTER_NAME=test {image} hdfs namenode
+  - >-
+    docker run -d --name hadoop-dn1 --net {network}
+    -e CORE_CONF_fs_defaultFS=hdfs://hadoop-nn:9000
+    {image} hdfs datanode
+  - >-
+    docker run -d --name hadoop-dn2 --net {network}
+    -e CORE_CONF_fs_defaultFS=hdfs://hadoop-nn:9000
+    {image} hdfs datanode
+workload_command: >-
+  docker exec hadoop-nn hdfs dfsadmin -report 2>&1
+stop_commands:
+  - docker rm -f hadoop-nn hadoop-dn1 hadoop-dn2
+  - docker network rm {network}
