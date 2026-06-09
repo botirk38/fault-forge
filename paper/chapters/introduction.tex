@@ -12,16 +12,16 @@ clusters, causing a write-availability blackout. Post-mortem analysis concluded
 that no monitoring system could have detected the degradation, because the
 failure boundary was \emph{orders of magnitude below} the monitoring resolution.
 
-This incident is not an anomaly. Slow faults---transient performance
+This incident is not an anomaly. Slow faults, including transient performance
 degradations such as network delays, disk stalls, and CPU
-throttling---are a leading cause of catastrophic failures in production
+throttling, are a leading cause of catastrophic failures in production
 distributed systems~\cite{xinda,gunawi-cbs}. Unlike crash failures, which are
 immediately detectable, slow faults manifest as sub-threshold degradations that
 persist undetected while progressively destabilizing system invariants.
 Google's Disruptive Testing Team reports that 22\% of production incidents
 involve degraded (not failed) components~\cite{google-sre-book}. Microsoft
-Azure's analysis of gray failures---where a component enters a degraded state
-undetected by health checks---shows they account for the majority of prolonged
+Azure's analysis of gray failures, where a component enters a degraded state
+undetected by health checks, shows they account for the majority of prolonged
 customer-impacting outages~\cite{huang-gray-failure}.
 
 The \xinda{} system~\cite{xinda} (NSDI~'25) advanced the state of the art by
@@ -34,8 +34,8 @@ point. This approach has three structural limitations:
 \begin{enumerate}[leftmargin=*,topsep=4pt,itemsep=2pt]
   \item \textbf{Grid incompleteness.} Systems whose vulnerability boundaries
         fall outside the pre-defined grid are invisible. Redis Cluster requires
-        2.7\,s of sustained delay to trigger PFAIL---entirely outside
-        \xinda{}'s 100\,$\mu$s--1\,s range. Seven of our 50 system--fault
+        2.7\,s of sustained delay to trigger PFAIL, entirely outside
+        \xinda{}'s 100\,$\mu$s to 1\,s range. Seven of our 50 system/fault
         configurations have boundaries outside standard grids.
   \item \textbf{No minimization.} \xinda{} reports \emph{which} grid points
         trigger failure (binary yes/no), but cannot identify the minimal
@@ -55,7 +55,7 @@ automatically searches for and \emph{minimizes} a fault trial, converging on
 the vulnerability boundary with confidence guarantees. The key insight is that
 fault effects are monotone with severity (validated empirically in
 \S\ref{sec:monotonicity}), enabling binary search over continuous parameter
-spaces---but doing so \emph{reliably} in the presence of distributed system
+spaces, but doing so \emph{reliably} in the presence of distributed system
 non-determinism requires a composable probing strategy that separates the
 noise-handling policy from the search algorithm.
 
@@ -91,7 +91,7 @@ five fault types (50 configurations total). Our results reveal:
         while using comparable or fewer trials, because the underlying
         monotone structure renders GP modeling overhead unnecessary.
   \item \textbf{Multi-fault interactions} lower individual boundaries by
-        22--50\% (mean 31.4\%), demonstrating that single-fault testing
+        22 to 50\% (mean 31.4\%), demonstrating that single-fault testing
         produces optimistic safety margins.
   \item Boundaries are \textbf{stable} (CV $<$5\% across 5 repeated runs)
         and \textbf{validated} with $>$97\% confidence separation between
@@ -102,13 +102,13 @@ five fault types (50 configurations total). Our results reveal:
 \begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
   \item The design and implementation of \system{}, a noise-tolerant
         boundary estimation system with composable probing strategies and
-        post-convergence confidence validation (\S\ref{sec:design}--\S\ref{sec:impl}).
+        post-convergence confidence validation (\S\ref{sec:design}, \S\ref{sec:impl}).
   \item A comprehensive evaluation across 10 systems $\times$ 5 fault types
         with four baselines (exhaustive grid, random search, Bayesian
         optimization, adaptive refinement), demonstrating both efficiency
         and boundary accuracy (\S\ref{sec:eval}).
   \item An empirical characterization of slow-fault danger zones revealing
-        that sub-20\,ms network perturbations---routine in cloud
-        environments---universally destabilize consensus protocols, a finding
+        that sub-20\,ms network perturbations, routine in cloud
+        environments, universally destabilize consensus protocols, a finding
         with immediate implications for monitoring system design (\S\ref{sec:findings}).
 \end{enumerate}

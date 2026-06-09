@@ -36,10 +36,10 @@ protocols (Redis gossip, Cassandra $\phi$-accrual), and one with KRaft (Kafka).
 
 \para{Fault types} Five fault categories:
 \begin{itemize}[leftmargin=*,topsep=2pt,itemsep=1pt]
-  \item \textbf{Network (nw)}: \texttt{tc netem} delay, range 0--10\,s.
-  \item \textbf{Filesystem (fs)}: Simulated I/O delay, range 0--10\,s.
-  \item \textbf{CPU (cpu)}: cgroup throttling, range 0.1--2.0 cores.
-  \item \textbf{Memory (mem)}: cgroup limit, range 128\,MB--4\,GB.
+  \item \textbf{Network (nw)}: \texttt{tc netem} delay, range 0 to 10\,s.
+  \item \textbf{Filesystem (fs)}: Simulated I/O delay, range 0 to 10\,s.
+  \item \textbf{CPU (cpu)}: cgroup throttling, range 0.1 to 2.0 cores.
+  \item \textbf{Memory (mem)}: cgroup limit, range 128\,MB to 4\,GB.
   \item \textbf{Process}: Container restart/stop (binary, no severity gradient).
 \end{itemize}
 
@@ -63,7 +63,7 @@ interference.
         report first reproduction (bounded at 37 trials for fairness).
   \item \textbf{Adaptive Grid}: Coarse 8-point scan then 10-point refinement
         around the lowest reproducing value (18 trials total).
-  \item \textbf{Bayesian (GP-UCB)}: Uncertainty-guided sampling---targets the
+  \item \textbf{Bayesian (GP-UCB)}: Uncertainty-guided sampling that targets the
         largest gap between reproducing and non-reproducing observations (18
         trials budget for fair comparison).
   \item \textbf{Bisection+Repeat}: Binary search with 3$\times$ majority
@@ -91,7 +91,7 @@ network fault minimization across all 10 systems.
 \begin{table*}[t]
 \centering
 \caption{Network fault comparison: \system{} minimizer vs.\ \xinda{} exhaustive grid vs.\ random search.
-\textbf{Bold} indicates best result per system. ``---'' indicates boundary not found within budget.
+\textbf{Bold} indicates best result per system. ``N/F'' indicates boundary not found within budget.
 $\dagger$: \xinda{} reports lowest grid hit (true boundary may be lower).}
 \label{tab:nw-comparison}
 \small
@@ -104,7 +104,7 @@ $\dagger$: \xinda{} reports lowest grid hit (true boundary may be lower).}
 etcd 3.5.10        & 37 & 868\,s  & 100\,$\mu$s & 4.2$\pm$2.1  & 98\,s   & 412\,ms  & \textbf{18} & \textbf{447\,s}  & 19.5\,ms \\
 ZooKeeper 3.8      & 37 & 908\,s  & 100\,$\mu$s & 3.8$\pm$1.9  & 93\,s   & 387\,ms  & \textbf{18} & \textbf{444\,s}  & 19.5\,ms \\
 MongoDB 7.0        & 37 & 1426\,s & 100\,$\mu$s & 5.1$\pm$2.8  & 196\,s  & 523\,ms  & \textbf{18} & \textbf{690\,s}  & 19.5\,ms \\
-Redis 7.2          & 37 & 1064\,s & ---         & 14.3$\pm$5.2 & 410\,s  & 4.8\,s   & \textbf{17} & \textbf{488\,s}  & 2.7\,s \\
+Redis 7.2          & 37 & 1064\,s & N/F         & 14.3$\pm$5.2 & 410\,s  & 4.8\,s   & \textbf{17} & \textbf{488\,s}  & 2.7\,s \\
 TiKV 7.5           & 37 & 1294\,s & 100\,$\mu$s & 4.5$\pm$2.3  & 173\,s  & 445\,ms  & \textbf{18} & \textbf{624\,s}  & 19.5\,ms \\
 Cassandra 4.1      & 37 & 1142\,s & 5\,ms       & 6.2$\pm$3.1  & 191\,s  & 612\,ms  & \textbf{18} & \textbf{556\,s}  & 39.1\,ms \\
 HBase 2.5          & 37 & 1538\,s & 1\,ms       & 5.8$\pm$2.7  & 227\,s  & 489\,ms  & \textbf{18} & \textbf{748\,s}  & 39.1\,ms \\
@@ -113,13 +113,13 @@ CockroachDB 23.2   & 37 & 1356\,s & 100\,$\mu$s & 4.1$\pm$2.0  & 150\,s  & 398\,
 Hadoop 3.3         & 37 & 1678\,s & 100\,ms     & 11.2$\pm$4.8 & 502\,s  & 1.9\,s   & \textbf{18} & \textbf{820\,s}  & 312.5\,ms \\
 \midrule
 \textbf{Total/Avg} & \textbf{370} & \textbf{12256\,s} & & 6.7$\pm$3.0 & 224\,s & & \textbf{179} & \textbf{5959\,s} & \\
-\textbf{Speedup}   & 1.0$\times$ & & & --- & & & \textbf{2.1$\times$} & \textbf{2.1$\times$} & \\
+\textbf{Speedup}   & 1.0$\times$ & & & N/F & & & \textbf{2.1$\times$} & \textbf{2.1$\times$} & \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 \para{Trial efficiency} \system{} uses 179 trials vs.\ \xinda{}'s 370 across
-10 systems (51.6\% reduction). Each system requires exactly 17--18 minimizer
+10 systems (51.6\% reduction). Each system requires exactly 17 to 18 minimizer
 iterations regardless of where the boundary falls, demonstrating the
 algorithm's independence from boundary location.
 
@@ -130,7 +130,7 @@ cluster lifecycle), so speedup directly reflects trial count reduction.
 \para{Random search comparison} Random search finds \emph{a} reproducing trial
 quickly (mean 6.7 trials) but provides no minimization. The reported boundary
 is wherever the first random sample happened to land. Random search's boundary
-estimates are 10--100$\times$ higher than \system{}'s minimized values,
+estimates are 10 to 100$\times$ higher than \system{}'s minimized values,
 demonstrating that finding \emph{any} reproduction is far easier than finding
 the \emph{minimal} one.
 
@@ -154,7 +154,7 @@ and outputs CI-actionable assertions rather than heat maps.
 % -------------------------------------------------------------------
 
 Table~\ref{tab:all-faults} presents \system{}'s minimized boundaries across
-all system--fault combinations.
+all system/fault combinations.
 
 \begin{table*}[t]
 \centering
@@ -180,13 +180,13 @@ Kafka 3.6        & 78.1\,ms  & 625.0\,ms  & 0.31 cores & 384\,MB  & restart \\
 CockroachDB 23.2 & 1.5\,s    & 156.3\,ms  & 0.20 cores & 512\,MB  & restart \\
 Hadoop 3.3       & 312.5\,ms & 1.2\,s$\dagger$    & 0.39 cores & 1024\,MB & restart \\
 \midrule
-\multicolumn{6}{@{}l}{\textit{Iterations per minimization: 17--18 (nw/fs), 8--10 (cpu/mem), 1 (process)}} \\
+\multicolumn{6}{@{}l}{\textit{Iterations per minimization: 17 to 18 (nw/fs), 8 to 10 (cpu/mem), 1 (process)}} \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
 Network boundaries span 130$\times$ from Raft systems (19.5\,ms) to Redis
-(2.7\,s). Filesystem boundaries are 4--16$\times$ higher (synchronous WAL
+(2.7\,s). Filesystem boundaries are 4 to 16$\times$ higher (synchronous WAL
 writes determine sensitivity). CPU: all fail under 0.4 cores; Go systems
 slightly more sensitive than JVM. Memory: Redis lowest (64\,MB, in-memory),
 Hadoop highest (1024\,MB). All systems detect single-node restarts.
@@ -213,7 +213,7 @@ Redis 7.2    & Network    & 2.7\,s   & 1\,s \\
 Redis 7.2    & Filesystem & 1.5\,s   & 1\,s \\
 Hadoop 3.3   & Filesystem & 1.2\,s   & 1\,s \\
 Kafka 3.6    & Filesystem & 625\,ms  & 500\,ms$^a$ \\
-Hadoop 3.3   & Network    & 312\,ms  & --- \\
+Hadoop 3.3   & Network    & 312\,ms  & N/F \\
 Redis 7.2    & CPU        & 0.39     & 0.25$^b$ \\
 Hadoop 3.3   & CPU        & 0.39     & 0.25$^b$ \\
 \bottomrule
@@ -263,9 +263,9 @@ CockroachDB & nw + fs   & 1.5\,s   & 980\,ms  & 35\% \\
 \end{table}
 
 \para{Key finding} Multi-fault combinations lower individual boundaries by
-22--50\% (mean 31.4\%), demonstrating interaction effects invisible to
+22 to 50\% (mean 31.4\%), demonstrating interaction effects invisible to
 single-fault testing. Single-fault boundaries are \emph{optimistic}; the
-true danger zone under combined faults is 20--50\% tighter.
+true danger zone under combined faults is 20 to 50\% tighter.
 
 % -------------------------------------------------------------------
 \subsection{Stability and Monotonicity}
@@ -351,7 +351,7 @@ where true is estimated from dense probing (60 trials).}
 \end{table}
 
 \para{Analysis} \system{} matches Bisection+Repeat in precision but uses 25\%
-fewer probes. Bayesian optimization converges within 1--2 steps of the true
+fewer probes. Bayesian optimization converges within 1 to 2 steps of the true
 boundary but cannot beat binary search on a monotone function ($O(\log_2 n)$
 is information-theoretically optimal). Adaptive grid performs worst due to
 625\,ms Phase~1 resolution that misses narrow boundaries.
@@ -376,11 +376,11 @@ $c = r_{above} - r_{below}$: confidence separation.}
 \toprule
 \textbf{System} & \textbf{$r_{above}$} & \textbf{$r_{below}$} & \textbf{Confidence $c$} \\
 \midrule
-etcd          & 1.00 & 1.00 & ---$^*$ \\
-ZooKeeper     & 1.00 & 1.00 & ---$^*$ \\
+etcd          & 1.00 & 1.00 & $^*$ \\
+ZooKeeper     & 1.00 & 1.00 & $^*$ \\
 MongoDB       & 1.00 & 0.80 & 0.20 \\
 Redis         & 1.00 & 0.00 & 1.00 \\
-TiKV          & 1.00 & 1.00 & ---$^*$ \\
+TiKV          & 1.00 & 1.00 & $^*$ \\
 Cassandra     & 0.80 & 0.20 & 0.60 \\
 HBase         & 1.00 & 0.00 & 1.00 \\
 Kafka         & 1.00 & 0.20 & 0.80 \\
@@ -433,7 +433,7 @@ multiple round-trips to exceed the heartbeat interval, triggering missed
 heartbeats and spurious elections.
 
 \para{Implication} Boundaries are \emph{architectural invariants}, not
-version-specific bugs. They shift only when timeout defaults change---e.g., if
+version-specific bugs. They shift only when timeout defaults change, e.g., if
 a future etcd release modifies \texttt{--heartbeat-interval} from 100\,ms to
 200\,ms. This means a CI pipeline can cache discovered boundaries and only
 re-run \system{} when configuration-relevant code changes (timeout constants,

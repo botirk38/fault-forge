@@ -14,7 +14,7 @@ documentation of the resilience/detection trade-off. Currently, most systems
 
 \para{Adaptive failure detection} Systems using fixed-interval heartbeats
 (Raft-based) show the narrowest danger zones. Moving to adaptive approaches
-($\phi$-accrual, sliding-window variance tracking) provides 2--5$\times$
+($\phi$-accrual, sliding-window variance tracking) provides 2 to 5$\times$
 wider jitter tolerance with comparable detection latency.
 
 \subsection{CI Integration}
@@ -67,5 +67,5 @@ match Prometheus alerting expressions rather than log patterns.
 \subsection{Data Availability}
 
 \system{} is open source. Oracle specifications, system configurations,
-experiment scripts, and raw trial logs for all 50 system--fault
+experiment scripts, and raw trial logs for all 50 system/fault
 configurations are available in \texttt{experiments/RESULTS.md}.
