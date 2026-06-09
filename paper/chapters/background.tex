@@ -14,7 +14,7 @@ several categories~\cite{xinda,gunawi-cbs}:
 \para{Network slow faults} Additional latency on network links due to
 congestion, switch buffers, or NIC issues. Even microsecond-scale delays can
 disrupt heartbeat-based failure detectors~\cite{raft,zab}. Cloud providers
-report tail latency spikes of 1--10\,ms multiple times per day on inter-AZ
+report tail latency spikes of 1 to 10\,ms multiple times per day on inter-AZ
 links~\cite{dean-tail-latency}.
 
 \para{Filesystem slow faults} Increased I/O latency from disk degradation or
@@ -74,7 +74,7 @@ If the first point reproduces, the remaining 36 trials provide diminishing
 information.
 
 \para{System-agnostic grid} The same grid is applied to all systems. This is
-efficient for systems with boundaries in the 1--100\,ms range but wasteful for
+efficient for systems with boundaries in the 1 to 100\,ms range but wasteful for
 both very sensitive systems (boundary $\ll$ 100\,$\mu$s) and very tolerant
 systems (boundary $\gg$ 1\,s).
 
@@ -122,7 +122,7 @@ Section~\ref{sec:monotonicity}.
 \para{Observation 2: Precision adapts to budget} A binary search with $k$
 iterations over range $[0, S_{\max}]$ produces precision $S_{\max}/2^k$. With
 8 iterations from 5000\,ms, precision is 19.5\,ms. With 12 iterations, it is
-1.2\,ms. Operators can choose their precision--time trade-off explicitly,
+1.2\,ms. Operators can choose their precision/time trade-off explicitly,
 unlike fixed grids where precision is predetermined by grid design.
 
 \para{Observation 3: Minimal recipes are more actionable} A recipe stating

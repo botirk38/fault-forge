@@ -19,7 +19,7 @@ with performance tracing.
 Bronson et al.~\cite{bronson-metastable} (OSDI~'22) formalize metastable
 failures: states where a system operates normally under typical load but
 catastrophically fails under small perturbations. Our finding that consensus
-systems fail at 19.5\,ms---invisible to monitoring---directly instantiates
+systems fail at 19.5\,ms, invisible to monitoring, directly instantiates
 the metastability pattern: the 250$\times$ gap between boundary and alerting
 threshold is the metastability window. \system{}'s boundaries quantify
 \emph{how close} a system operates to its metastable trigger, complementing
@@ -47,13 +47,13 @@ after finding a failing test case, the shrinker systematically reduces inputs
 toward a minimal counterexample. \system{}'s greedy dimensional minimization
 is conceptually analogous to shrinking, applied to the fault parameter space
 rather than program inputs. The key difference is that each ``evaluation''
-in our domain requires executing a full distributed system trial (25--45\,s),
+in our domain requires executing a full distributed system trial (25 to 45\,s),
 making budget-optimal search critical; QuickCheck's shrinking assumes
 millisecond evaluations.
 
 \para{Gray failure and partial failures}
 Huang et al.~\cite{huang-gray-failure} (HotOS~'17) identify gray
-failures---where a component is degraded but not detected as failed---as a
+failures, where a component is degraded but not detected as failed, as a
 major reliability challenge. Our work quantifies the boundary at which gray
 becomes catastrophic: the 19.5\,ms threshold is precisely where ``gray''
 (sub-threshold degradation) transitions to ``failure'' (observable system

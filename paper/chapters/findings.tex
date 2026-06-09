@@ -16,8 +16,8 @@ to each system's failure detection mechanism:
 \begin{enumerate}[leftmargin=*,topsep=2pt,itemsep=1pt]
   \item \textbf{Raft heartbeat systems ($\leq$19.5\,ms).} etcd, ZooKeeper,
         MongoDB, TiKV. These systems use aggressive heartbeat
-        intervals (default 100--500\,ms) with election timeouts at
-        1--10$\times$ the heartbeat. A network delay of 19.5\,ms is
+        intervals (default 100 to 500\,ms) with election timeouts at
+        1 to 10$\times$ the heartbeat. A network delay of 19.5\,ms is
         sufficient to push RTT beyond the heartbeat interval, triggering
         leader re-election. The election itself involves message
         round-trips that are \emph{also} subject to the injected delay,
@@ -35,17 +35,17 @@ to each system's failure detection mechanism:
         (node liveness heartbeat at 1\,s, boundary at 1.5\,s), Redis
         (\texttt{cluster-node-timeout}/2 = 2.5\,s for PFAIL), and Hadoop
         (NameNode heartbeat timeout). These deliberately trade detection
-        latency for jitter tolerance---a conscious design choice.
+        latency for jitter tolerance, a conscious design choice.
 \end{enumerate}
 
 \para{Architectural implication} The 130$\times$ spread between the most
 sensitive tier (19.5\,ms) and the most tolerant (2.7\,s) is a direct
 consequence of timeout configuration, not implementation quality. Systems
 in Tier~1 could move to Tier~4 resilience by adopting configurable election
-timeouts---as etcd partially does with \texttt{heartbeat-interval} and
-\texttt{election-timeout}---but operators rarely change defaults.
+timeouts, as etcd partially does with \texttt{heartbeat-interval} and
+\texttt{election-timeout}, but operators rarely change defaults.
 
-\subsection{Fault Type Sensitivity Varies 4--16$\times$}
+\subsection{Fault Type Sensitivity Varies 4 to 16$\times$}
 \label{sec:finding-sensitivity}
 
 Within a single system, vulnerability boundaries vary dramatically across
@@ -66,7 +66,7 @@ faults provide the tightest bounds for consensus systems.
 \subsection{Single-Fault Testing Is Optimistic}
 \label{sec:finding-multi}
 
-Multi-fault combinations reduce individual boundaries by 22--50\% (mean 31.4\%,
+Multi-fault combinations reduce individual boundaries by 22 to 50\% (mean 31.4\%,
 Table~\ref{tab:multi-fault}). The compound effect is strongest when faults
 target \emph{orthogonal resources} consumed by the same critical path:
 
@@ -92,10 +92,10 @@ safety margins should assume at least 30\% tighter boundaries.
 \subsection{Minimization Is CI-Practical}
 \label{sec:finding-ci}
 
-\system{} characterizes a single system in 7--14 minutes wall-clock time
-(17--18 iterations $\times$ 25--45\,s per trial including full Docker cluster
+\system{} characterizes a single system in 7 to 14 minutes wall-clock time
+(17 to 18 iterations $\times$ 25 to 45\,s per trial including full Docker cluster
 lifecycle). The entire 10-system $\times$ 5-fault-type matrix completes in
-$\sim$8 hours on a single server---well within nightly CI budgets.
+$\sim$8 hours on a single server, well within nightly CI budgets.
 
 \para{Regression testing} Boundaries are stable (CV$<$5\%), so a 1-step
 increase between releases (e.g., etcd boundary drops from 19.5\,ms to 9.8\,ms
@@ -113,7 +113,7 @@ faultforge minimize --system etcd:v3.6 \
 \label{sec:finding-monitoring}
 
 The 250$\times$ gap between consensus boundaries (19.5\,ms) and production
-alerting thresholds (1--5\,s) represents a \emph{monitoring blind spot}. Any
+alerting thresholds (1 to 5\,s) represents a \emph{monitoring blind spot}. Any
 network perturbation between 20\,ms and 1\,s is simultaneously dangerous
 (above the failure boundary) and invisible (below the alerting threshold).
 
@@ -133,5 +133,5 @@ This finding has concrete implications:
 pattern~\cite{bronson-metastable}: a system operating in a vulnerable state
 (network latency near 19.5\,ms) can be tipped into cascading failure by a
 minor additional perturbation. The gap between danger zone and monitoring
-threshold is the \emph{metastability window}---the range of severities where
+threshold is the \emph{metastability window}, the range of severities where
 the system is vulnerable but no alert fires.

@@ -219,7 +219,7 @@ $B_{\text{mag}}, B_{\text{dur}}, B_{\text{time}}$:
 
 With default configuration ($B_{\text{mag}}=8$, $B_{\text{dur}}=5$,
 $B_{\text{time}}=5$) and a single-fault trial ($k=1$), the maximum is 19
-iterations. Empirically we observe 17--18 (the initial verification trial
+iterations. Empirically we observe 17 to 18 (the initial verification trial
 uses 1 iteration, and phases that converge early return budget to later phases).
 
 \para{Precision guarantee} After $B_{\text{mag}}$ binary search steps over
@@ -256,27 +256,27 @@ for tighter bounds.
 \draw[blue, thick, mark=*,mark size=1.5pt] plot coordinates {
   (0,10) (1,8) (2,6) (3,4) (4,3) (5,2) (6,1.2) (7,0.6) (8,0.3)
 };
-\node[blue, font=\scriptsize, right] at (8.1,0.3) {etcd};
+\node[blue, font=\scriptsize, below] at (8,0.3) {etcd};
 
 % Redis convergence (boundary ~2700ms from 10s range)
 % hi: 10000, 10000, 7500, 6250, 5000, 3750, 3125, 2812, 2700
 \draw[red, thick, mark=square*,mark size=1.5pt] plot coordinates {
   (0,10) (1,10) (2,8.5) (3,7.5) (4,6.5) (5,5.8) (6,5.4) (7,5.2) (8,5.1)
 };
-\node[red, font=\scriptsize, right] at (8.1,5.1) {Redis};
+\node[red, font=\scriptsize, right] at (8.2,5.1) {Redis};
 
 % Kafka convergence (boundary ~78ms)
 % hi: 5000, 2500, 1250, 625, 312.5, 156.3, 78.1, 78.1, 78.1
 \draw[green!60!black, thick, mark=triangle*,mark size=1.5pt] plot coordinates {
   (0,10) (1,8) (2,6) (3,4) (4,3) (5,2) (6,1.5) (7,1.2) (8,1.1)
 };
-\node[green!60!black, font=\scriptsize, right] at (8.1,1.1) {Kafka};
+\node[green!60!black, font=\scriptsize, above] at (8,1.1) {Kafka};
 
 % Dashed line showing exponential convergence envelope
 \draw[gray, dashed, thin] plot coordinates {
   (0,10) (1,8) (2,6) (3,4) (4,2) (5,1) (6,0.5) (7,0.25) (8,0.12)
 };
-\node[gray, font=\scriptsize, right] at (8.1,-0.3) {$S_{\max}/2^k$};
+\node[gray, font=\scriptsize, below] at (4,1.2) {$S_{\max}/2^k$};
 
 \end{tikzpicture}
 \caption{Convergence of the severity binary search for three representative
@@ -352,5 +352,5 @@ this known-good trial, eliminating an initial search phase in most cases.
 For trials with multiple faults, Phase~1 attempts to eliminate each fault
 while preserving reproduction, identifying \emph{necessary} faults. The
 greedy approach preserves interaction effects: it only removes a fault if the
-remaining set still reproduces. Phases 2--4 then minimize each remaining
+remaining set still reproduces. Phases 2 to 4 then minimize each remaining
 fault independently, producing a locally minimal multi-fault recipe.
